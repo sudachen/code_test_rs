@@ -1,9 +1,9 @@
+use rust_decimal::Decimal;
+use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use thiserror::Error;
-use rust_decimal::Decimal;
-use serde::{Serialize, Deserialize};
 
-#[derive(Copy,Clone,Default,PartialEq,Debug,Eq,Hash,Serialize,Deserialize)]
+#[derive(Copy, Clone, Default, PartialEq, Debug, Eq, Hash, Serialize, Deserialize)]
 pub struct Client(u16);
 impl From<u32> for Client {
     fn from(v: u32) -> Self {
@@ -11,7 +11,7 @@ impl From<u32> for Client {
     }
 }
 
-#[derive(Copy,Clone,Default,PartialEq,Debug,Eq,Hash,Serialize,Deserialize)]
+#[derive(Copy, Clone, Default, PartialEq, Debug, Eq, Hash, Serialize, Deserialize)]
 pub struct TxId(u32);
 impl From<u32> for TxId {
     fn from(v: u32) -> Self {
@@ -21,6 +21,8 @@ impl From<u32> for TxId {
 
 #[derive(Error, Debug)]
 pub enum TxError {
+    #[error("{0}")]
+    StringError(String),
     #[error("Transaction rejected: {0}")]
     Rejected(String),
     #[error("Transaction ignored: {0}")]
@@ -29,21 +31,21 @@ pub enum TxError {
     IOError(#[from] std::io::Error),
 }
 
-#[derive(Copy,Clone,Debug,Serialize,Deserialize)]
+#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
 pub enum TxType {
-    #[serde(rename="deposit")]
+    #[serde(rename = "deposit")]
     Deposit,
-    #[serde(rename="withdrawal")]
+    #[serde(rename = "withdrawal")]
     Withdrawal,
-    #[serde(rename="dispute")]
+    #[serde(rename = "dispute")]
     Dispute,
-    #[serde(rename="resolve")]
+    #[serde(rename = "resolve")]
     Resolve,
-    #[serde(rename="chargeback")]
-    Chargeback
+    #[serde(rename = "chargeback")]
+    Chargeback,
 }
 
-#[derive(Copy,Clone,Default,Debug)]
+#[derive(Copy, Clone, Default, Debug)]
 pub struct Account {
     pub available: Decimal,
     pub total: Decimal,
@@ -51,7 +53,7 @@ pub struct Account {
     pub locked: bool,
 }
 
-#[derive(Copy,Clone,Default,PartialEq,Debug)]
+#[derive(Copy, Clone, Default, PartialEq, Debug)]
 pub enum TxState {
     #[default]
     Committed, // can be disputed
@@ -60,11 +62,16 @@ pub enum TxState {
     Cancelled, // the transaction amount is not longer count in client account
 }
 
-#[derive(Copy,Clone,Default,Debug)]
+#[derive(Copy, Clone, Default, Debug)]
 pub struct Transaction {
     pub client: Client,
     pub amount: Decimal,
     pub state: TxState,
+}
+
+#[derive(Clone, Copy, Debug, Default)]
+pub struct Policy {
+    pub allow_negative_balance_for_dispute: bool
 }
 
 pub trait Bank {
@@ -73,16 +80,16 @@ pub trait Bank {
     fn dispute(&mut self, client: Client, tx_id: TxId) -> Result<(), TxError>;
     fn resolve(&mut self, client: Client, tx_id: TxId) -> Result<(), TxError>;
     fn chargeback(&mut self, client: Client, tx_id: TxId) -> Result<(), TxError>;
-    fn ledger(&self) ->&dyn Ledger;
+    fn ledger(&self) -> &dyn Ledger;
 }
 
 pub trait Ledger<'q> {
     fn get_account(&self, client: Client) -> Result<Option<Account>, std::io::Error>;
     fn put_account(&mut self, client: Client, account: Account) -> Result<(), std::io::Error>;
-    fn accounts(&'q self) -> Box<dyn Iterator<Item = (&'q Client,&'q Account)> + 'q>;
+    fn accounts(&'q self) -> Box<dyn Iterator<Item = (&'q Client, &'q Account)> + 'q>;
     fn get_transaction(&self, tx_id: TxId) -> Result<Option<Transaction>, std::io::Error>;
     fn put_transaction(&mut self, tx_id: TxId, tx: Transaction) -> Result<(), std::io::Error>;
-    fn transactions(&'q self) -> Box<dyn Iterator<Item = (&'q TxId,&'q Transaction)> + 'q>;
+    fn transactions(&'q self) -> Box<dyn Iterator<Item = (&'q TxId, &'q Transaction)> + 'q>;
 }
 
 impl Debug for dyn Bank {

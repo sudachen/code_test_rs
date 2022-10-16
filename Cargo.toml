@@ -17,9 +17,12 @@ futures = "0.3"
 clap = "4.0.15"
 csv = "1.1"
 serde = { version = "1.0", features = ["derive"] }
+regex = "1"
 
 [[test]]
 name = "test_basic"
+path = "tests/test_basic.rs"
+#harness = false
 
 [[bin]]
 name = "execute"

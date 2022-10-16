@@ -1,18 +1,21 @@
 #![cfg(test)]
+
+use std::default::Default;
 use futures;
 use futures::FutureExt as _;
 use cucumber::{given, then, when, World as _, gherkin::Step};
 use std::fmt::Debug;
 use std::marker::PhantomData;
+use cucumber::codegen::Regex;
 use rust_decimal::Decimal;
-use toybank::common::{Bank,TxError};
+use toybank::common::{Bank,TxError,Policy};
 
 pub type DynBank = Box::<dyn Bank>;
 pub fn dyn_wrap<T: Bank + 'static>(t: T) -> DynBank { Box::new(t) }
 
 pub trait Factory {
-    fn open(ledger: Option<String>) -> DynBank;
-    fn new(ledger: Option<String>) -> DynBank;
+    fn open(ledger: Option<String>, policy: Policy) -> DynBank;
+    fn new(ledger: Option<String>, policy: Policy) -> DynBank;
 }
 
 pub trait CustomTest {
@@ -22,15 +25,15 @@ pub trait CustomTest {
 }
 
 #[derive(Default)]
-struct CustomTestImpl<F:Factory>(Option<DynBank>,PhantomData<F>);
+struct CustomTestImpl<F:Factory>(Option<DynBank>,Policy,PhantomData<F>);
 
 impl<F:Factory> CustomTest for CustomTestImpl<F> {
     fn new_ledger(&mut self, leger: Option<String>) {
-        self.0 = Some(F::new(leger))
+        self.0 = Some(F::new(leger, self.1))
     }
 
     fn open_ledger(&mut self, leger: Option<String>) {
-        self.0 = Some(F::open(leger))
+        self.0 = Some(F::open(leger, self.1))
     }
 
     fn dyn_bank(&mut self) -> &mut dyn Bank {
@@ -65,7 +68,8 @@ fn err(status: Result<(), TxError>, j: String) -> Result<(), String> {
             if j == "rejected" { Ok(()) } else { Err(format!("rejected: {e}")) },
         Err(TxError::Ignored(e)) =>
             if j == "ignored" { Ok(()) } else { Err(format!("ignored: {e}")) },
-        Err(TxError::IOError(e)) => Err(format!("IoError: {e}"))
+        Err(TxError::IOError(e)) => Err(format!("IoError: {e}")),
+        Err(TxError::StringError(e)) => Err(format!("{e}"))
     }
 }
 
@@ -74,9 +78,14 @@ fn new_leger(w: &mut Test, name: String) {
     w.0.new_ledger(Some(name.trim().into()))
 }
 
+#[given(regex = r"open\s+ledger(\s+\w+)?}")]
+fn open_leger(w: &mut Test, name: String) {
+    w.0.open_ledger(Some(name.trim().into()))
+}
+
 #[given(r"new ledger")]
-fn new_unon_leger(w: &mut Test) {
-    w.0.new_ledger(None)
+fn new_anon_leger(w: &mut Test) {
+    w.0.new_ledger(None, )
 }
 
 #[when(regex = r"tx\s+(\d+)\s+deposit\s+(\d*\.?\d+)\s+to\s+(\d+)(\s+rejected|\s+ignored)?")]
@@ -149,13 +158,15 @@ fn validate_accounts(w: &mut Test, step: &Step) {
 // Since CLion IDE (with JetBrains Rust plugin) calls
 //    `cargo test` with additional params I really don't need,
 //    this dirty trick allows to skips all those params
-// yeh, it's possible to use testlib writer, but the output then becomes ugly and useless
+// yeh, it's possible to use libtest writer, but the output then becomes ugly and useless
 #[derive(clap::Args)]
 //#[command(allow_external_subcommands(true))]
 struct CustomCli {
-    testname: Option<String>,
+    test_name: Option<String>,
     #[arg(long)]
     format: Option<String>,
+    #[arg(long)]
+    exact: bool,
     #[arg(short='Z')]
     z: Option<String>,
     #[arg(long="show-output")]
@@ -167,14 +178,24 @@ pub fn run_with<F: Factory + 'static>(features: &str) -> usize {
     let cli = cucumber::cli::Opts::<_, _, _, CustomCli>::parsed();
     let t = Test::cucumber()
         .with_cli(cli)
-        //.with_writer(writer::Libtest::or_basic())
-        .before(move |_,_,_,w| {
+        .before(move |_,r,_,w| {
             async move {
-                w.0 = Box::new(CustomTestImpl::<F>(None,PhantomData));
+                let mut policy: Policy  = Default::default();
+                if let Some(rule) = r {
+                    let rx = Regex::new(r"(allow|deny) negative balance for dispute").unwrap();
+                    if let Some(x) = rx.captures(rule.name.as_str()) {
+                        match &x[1] {
+                            "allow" => policy.allow_negative_balance_for_dispute = true,
+                            "deny" => policy.allow_negative_balance_for_dispute = false,
+                            _ => ()
+                        }
+                    }
+                }
+                w.0 = Box::new(CustomTestImpl::<F>(None,policy, PhantomData));
             }.boxed_local()
         });
     let res = futures::executor::block_on(t.run(features));
-    res.scenarios.failed // + res.right.writer.failed_steps()
+    res.scenarios.failed
 }
 
 #[allow(dead_code)]

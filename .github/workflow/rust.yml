@@ -1,0 +1,33 @@
+name: Rust
+
+on:
+  push:
+    branches: ["master"]
+  pull_request:
+    branches: ["master"]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+      - name: Build
+        run: cargo build
+      - name: Run tests
+        run: cargo test
+        env:
+          CARGO_INCREMENTAL: '0'
+      - name: rust-grcov
+        uses: actions-rs/grcov@v0.1.5
+      - name: Codecov
+        uses: codecov/codecov-action@v3.1.0
+        with:
+          verbose: true
+          fail_ci_if_error: true
