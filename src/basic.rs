@@ -226,8 +226,8 @@ impl<'q> LedgerTrait<'q> for Ledger {
         self.accounts.insert(client, account);
         Ok(())
     }
-    fn accounts(&'q self) -> Box<dyn Iterator<Item = IterResult<(&'q Client, &'q Account)>> + 'q> {
-        Box::new(self.accounts.iter().map(|v| Ok(v)))
+    fn accounts(&'q self) -> Box<dyn Iterator<Item = IterResult<(Client, Account)>> + 'q> {
+        Box::new(self.accounts.iter().map(|v| Ok((*v.0, *v.1))))
     }
     fn get_transaction(&self, tx_id: TxId) -> Result<Option<Transaction>, std::io::Error> {
         Ok(self.transactions.get(&tx_id).copied())
@@ -236,9 +236,7 @@ impl<'q> LedgerTrait<'q> for Ledger {
         self.transactions.insert(tx_id, tx);
         Ok(())
     }
-    fn transactions(
-        &'q self,
-    ) -> Box<dyn Iterator<Item = IterResult<(&'q TxId, &'q Transaction)>> + 'q> {
-        Box::new(self.transactions.iter().map(|v| Ok(v)))
+    fn transactions(&'q self) -> Box<dyn Iterator<Item = IterResult<(TxId, Transaction)>> + 'q> {
+        Box::new(self.transactions.iter().map(|v| Ok((*v.0, *v.1))))
     }
 }

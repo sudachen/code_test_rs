@@ -45,7 +45,7 @@ pub enum TxType {
     Chargeback,
 }
 
-#[derive(Copy, Clone, Default, Debug)]
+#[derive(Copy, Clone, Default, Debug, Serialize, Deserialize)]
 pub struct Account {
     pub available: Decimal,
     pub total: Decimal,
@@ -53,7 +53,7 @@ pub struct Account {
     pub locked: bool,
 }
 
-#[derive(Copy, Clone, Default, PartialEq, Debug)]
+#[derive(Copy, Clone, Default, PartialEq, Debug, Serialize, Deserialize)]
 pub enum TxState {
     #[default]
     Committed, // can be disputed
@@ -62,7 +62,7 @@ pub enum TxState {
     Cancelled, // the transaction amount is not longer count in client account
 }
 
-#[derive(Copy, Clone, Default, Debug)]
+#[derive(Copy, Clone, Default, Debug, Serialize, Deserialize)]
 pub struct Transaction {
     pub client: Client,
     pub amount: Decimal,
@@ -71,7 +71,7 @@ pub struct Transaction {
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Policy {
-    pub allow_negative_balance_for_dispute: bool
+    pub allow_negative_balance_for_dispute: bool,
 }
 
 pub trait Accountant {
@@ -83,15 +83,15 @@ pub trait Accountant {
     fn ledger(&self) -> &dyn Ledger;
 }
 
-pub type IterResult<T> = Result<T,std::io::Error>;
+pub type IterResult<T> = Result<T, std::io::Error>;
 
 pub trait Ledger<'q> {
     fn get_account(&self, client: Client) -> Result<Option<Account>, std::io::Error>;
     fn put_account(&mut self, client: Client, account: Account) -> Result<(), std::io::Error>;
-    fn accounts(&'q self) -> Box<dyn Iterator<Item = IterResult<(&'q Client, &'q Account)>> + 'q>;
+    fn accounts(&'q self) -> Box<dyn Iterator<Item = IterResult<(Client, Account)>> + 'q>;
     fn get_transaction(&self, tx_id: TxId) -> Result<Option<Transaction>, std::io::Error>;
     fn put_transaction(&mut self, tx_id: TxId, tx: Transaction) -> Result<(), std::io::Error>;
-    fn transactions(&'q self) -> Box<dyn Iterator<Item = IterResult<(&'q TxId, &'q Transaction)>> + 'q>;
+    fn transactions(&'q self) -> Box<dyn Iterator<Item = IterResult<(TxId, Transaction)>> + 'q>;
 }
 
 impl Debug for dyn Accountant {

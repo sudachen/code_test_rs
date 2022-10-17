@@ -1,11 +1,11 @@
 mod suite;
-use toybank::basic::{Accountant,Ledger};
+use toybank::basic::{Accountant, Ledger};
 use toybank::common::Policy;
 
 struct TheFactory;
 
 impl suite::Factory for TheFactory {
-    fn open(_: Option<String>, _: Policy) -> suite::Dyna {
+    fn open(_: String, _: Policy) -> suite::Dyna {
         panic!("open is not implemented for basic::Accountant using basic::Ledger");
     }
     fn new(_: Option<String>, policy: Policy) -> suite::Dyna {

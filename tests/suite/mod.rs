@@ -1,43 +1,53 @@
 #![cfg(test)]
 
-use std::default::Default;
+use cucumber::codegen::Regex;
+use cucumber::{gherkin::Step, given, then, when, World as _};
 use futures;
 use futures::FutureExt as _;
-use cucumber::{given, then, when, World as _, gherkin::Step};
+use rust_decimal::Decimal;
+use std::default::Default;
 use std::fmt::Debug;
 use std::marker::PhantomData;
-use cucumber::codegen::Regex;
-use rust_decimal::Decimal;
-use toybank::common::{Accountant, TxError, Policy};
+use toybank::common::{Accountant, Policy, TxError};
 
-pub type Dyna = Box::<dyn Accountant>;
-pub fn dyna_make<T: Accountant + 'static>(t: T) -> Dyna { Box::new(t) }
+pub type Dyna = Box<dyn Accountant>;
+pub fn dyna_make<T: Accountant + 'static>(t: T) -> Dyna {
+    Box::new(t)
+}
 
 pub trait Factory {
-    fn open(ledger: Option<String>, policy: Policy) -> Dyna;
+    fn open(ledger: String, policy: Policy) -> Dyna;
     fn new(ledger: Option<String>, policy: Policy) -> Dyna;
 }
 
 pub trait CustomTest {
-    fn new_ledger(&mut self, _leger: Option<String>) { panic!("uninitialized") }
-    fn open_ledger(&mut self, _leger: Option<String>) { panic!("uninitialized") }
-    fn dyn_bank(&mut self) -> &mut dyn Accountant { panic!("uninitialized") }
+    fn new_ledger(&mut self, _leger: Option<String>) {
+        panic!("uninitialized")
+    }
+    fn open_ledger(&mut self, _leger: String) {
+        panic!("uninitialized")
+    }
+    fn dyn_bank(&mut self) -> &mut dyn Accountant {
+        panic!("uninitialized")
+    }
 }
 
 #[derive(Default)]
-struct CustomTestImpl<F:Factory>(Option<Dyna>, Policy, PhantomData<F>);
+struct CustomTestImpl<F: Factory>(Option<Dyna>, Policy, PhantomData<F>);
 
-impl<F:Factory> CustomTest for CustomTestImpl<F> {
+impl<F: Factory> CustomTest for CustomTestImpl<F> {
     fn new_ledger(&mut self, leger: Option<String>) {
         self.0 = Some(F::new(leger, self.1))
     }
 
-    fn open_ledger(&mut self, leger: Option<String>) {
+    fn open_ledger(&mut self, leger: String) {
         self.0 = Some(F::open(leger, self.1))
     }
 
     fn dyn_bank(&mut self) -> &mut dyn Accountant {
-        if let Some(x) = &mut self.0 { return &mut **x }
+        if let Some(x) = &mut self.0 {
+            return &mut **x;
+        }
         panic!("ledger is not selected")
     }
 }
@@ -55,37 +65,50 @@ struct UninitCustomTest;
 impl CustomTest for UninitCustomTest {}
 impl Default for Test {
     fn default() -> Self {
-        Self(Box::new(UninitCustomTest{}))
+        Self(Box::new(UninitCustomTest {}))
     }
 }
 
 fn err(status: Result<(), TxError>, j: String) -> Result<(), String> {
     let j = j.trim();
     match status {
-        Ok(_) =>
-            if j == "" { Ok(()) } else { Err(format!("succeeded but must be {j}").into()) },
-        Err(TxError::Rejected(e)) =>
-            if j == "rejected" { Ok(()) } else { Err(format!("rejected: {e}")) },
-        Err(TxError::Ignored(e)) =>
-            if j == "ignored" { Ok(()) } else { Err(format!("ignored: {e}")) },
+        Ok(_) => {
+            if j == "" {
+                Ok(())
+            } else {
+                Err(format!("succeeded but must be {j}").into())
+            }
+        }
+        Err(TxError::Rejected(e)) => {
+            if j == "rejected" {
+                Ok(())
+            } else {
+                Err(format!("rejected: {e}"))
+            }
+        }
+        Err(TxError::Ignored(e)) => {
+            if j == "ignored" {
+                Ok(())
+            } else {
+                Err(format!("ignored: {e}"))
+            }
+        }
         Err(TxError::IOError(e)) => Err(format!("IoError: {e}")),
-        Err(TxError::StringError(e)) => Err(format!("{e}"))
+        Err(TxError::StringError(e)) => Err(format!("{e}")),
     }
 }
 
-#[given(regex = r"new\s+ledger(\s+\w+)?}")]
+#[given(regex = r"new\s+ledger(\s+[^\s]+)?")]
 fn new_leger(w: &mut Test, name: String) {
-    w.0.new_ledger(Some(name.trim().into()))
+    match name.trim() {
+        "" => w.0.new_ledger(None),
+        path => w.0.new_ledger(Some(path.into())),
+    }
 }
 
-#[given(regex = r"open\s+ledger(\s+\w+)?}")]
+#[given(regex = r"open\s+ledger(\s+[^\s]+)?")]
 fn open_leger(w: &mut Test, name: String) {
-    w.0.open_ledger(Some(name.trim().into()))
-}
-
-#[given(r"new ledger")]
-fn new_anon_leger(w: &mut Test) {
-    w.0.new_ledger(None, )
+    w.0.open_ledger(name.trim().into())
 }
 
 #[when(regex = r"tx\s+(\d+)\s+deposit\s+(\d*\.?\d+)\s+to\s+(\d+)(\s+rejected|\s+ignored)?")]
@@ -120,7 +143,9 @@ fn chargeback(w: &mut Test, tx: u32, c: u32, j: String) {
     assert_eq!(err(status, j), Ok(()))
 }
 
-#[then(regex = r"account\s+(\d+)\s+has\s+total[=\s](\d*\.?\d+)\s+available[=\s](\d*\.?\d+)\s+held[=\s](\d*\.?\d+)")]
+#[then(
+    regex = r"account\s+(\d+)\s+has\s+total[=\s](\d*\.?\d+)\s+available[=\s](\d*\.?\d+)\s+held[=\s](\d*\.?\d+)"
+)]
 fn account_has(w: &mut Test, c: u32, t: String, a: String, h: String) {
     let available = Decimal::from_str_exact(a.as_str()).unwrap();
     let total = Decimal::from_str_exact(t.as_str()).unwrap();
@@ -142,16 +167,19 @@ fn account_is_locked(w: &mut Test, c: u32) {
 #[when("execute csv")]
 fn execute_csv(w: &mut Test, step: &Step) {
     let x = step.docstring.clone().unwrap();
-    if let Err(e) = toybank::libcsv::execute_csv(std::io::Cursor::new(x.as_bytes()), w.0.dyn_bank()) {
-        assert!(false,"error occured: {e}")
+    if let Err(e) = toybank::libcsv::execute_csv(std::io::Cursor::new(x.as_bytes()), w.0.dyn_bank())
+    {
+        assert!(false, "error occured: {e}")
     }
 }
 
 #[then("validate accounts")]
 fn validate_accounts(w: &mut Test, step: &Step) {
     let x = step.docstring.clone().unwrap();
-    if let Err(e) = toybank::libcsv::validate_accounts(std::io::Cursor::new(x.as_bytes()), w.0.dyn_bank()) {
-        assert!(false,"error occured: {e}")
+    if let Err(e) =
+        toybank::libcsv::validate_accounts(std::io::Cursor::new(x.as_bytes()), w.0.dyn_bank())
+    {
+        assert!(false, "error occured: {e}")
     }
 }
 
@@ -167,33 +195,32 @@ struct CustomCli {
     format: Option<String>,
     #[arg(long)]
     exact: bool,
-    #[arg(short='Z')]
+    #[arg(short = 'Z')]
     z: Option<String>,
-    #[arg(long="show-output")]
+    #[arg(long = "show-output")]
     so: bool,
 }
 
 #[allow(dead_code)]
 pub fn run_with<F: Factory + 'static>(features: &str) -> usize {
     let cli = cucumber::cli::Opts::<_, _, _, CustomCli>::parsed();
-    let t = Test::cucumber()
-        .with_cli(cli)
-        .before(move |_,r,_,w| {
-            async move {
-                let mut policy: Policy  = Default::default();
-                if let Some(rule) = r {
-                    let rx = Regex::new(r"(allow|deny) negative balance for dispute").unwrap();
-                    if let Some(x) = rx.captures(rule.name.as_str()) {
-                        match &x[1] {
-                            "allow" => policy.allow_negative_balance_for_dispute = true,
-                            "deny" => policy.allow_negative_balance_for_dispute = false,
-                            _ => ()
-                        }
+    let t = Test::cucumber().with_cli(cli).before(move |_, r, _, w| {
+        async move {
+            let mut policy: Policy = Default::default();
+            if let Some(rule) = r {
+                let rx = Regex::new(r"(allow|deny) negative balance for dispute").unwrap();
+                if let Some(x) = rx.captures(rule.name.as_str()) {
+                    match &x[1] {
+                        "allow" => policy.allow_negative_balance_for_dispute = true,
+                        "deny" => policy.allow_negative_balance_for_dispute = false,
+                        _ => (),
                     }
                 }
-                w.0 = Box::new(CustomTestImpl::<F>(None,policy, PhantomData));
-            }.boxed_local()
-        });
+            }
+            w.0 = Box::new(CustomTestImpl::<F>(None, policy, PhantomData));
+        }
+        .boxed_local()
+    });
     let res = futures::executor::block_on(t.run(features));
     res.scenarios.failed
 }
@@ -201,5 +228,5 @@ pub fn run_with<F: Factory + 'static>(features: &str) -> usize {
 #[allow(dead_code)]
 pub fn succeeded_with<F: Factory + 'static>(features: &str) {
     let n = run_with::<F>(features);
-    assert_eq!(n,0,"{n} failed scenarios");
+    assert_eq!(n, 0, "{n} failed scenarios");
 }

@@ -35,7 +35,10 @@ pub enum ExecError {
     TxError(#[from] TxError),
 }
 
-pub fn execute_csv_file(path: impl AsRef<Path>, bank: &mut dyn Accountant) -> Result<(), ExecError> {
+pub fn execute_csv_file(
+    path: impl AsRef<Path>,
+    bank: &mut dyn Accountant,
+) -> Result<(), ExecError> {
     let mut f = std::fs::File::open(path)?;
     execute_csv(&mut f, bank)
 }
@@ -68,7 +71,10 @@ pub fn execute_csv(rd: impl std::io::Read, bank: &mut dyn Accountant) -> Result<
     Ok(())
 }
 
-pub fn validate_accounts(rd: impl std::io::Read, bank: &mut dyn Accountant) -> Result<(), ExecError> {
+pub fn validate_accounts(
+    rd: impl std::io::Read,
+    bank: &mut dyn Accountant,
+) -> Result<(), ExecError> {
     let mut rdr = csv::ReaderBuilder::new()
         .delimiter(b',')
         .trim(csv::Trim::All)
@@ -107,15 +113,14 @@ pub fn dump_accounts(wr: impl std::io::Write, bank: &mut dyn Accountant) -> Resu
     let mut wrr = csv::WriterBuilder::new().delimiter(b',').from_writer(wr);
     for pair in bank.ledger().accounts() {
         match pair {
-            Ok((&client,state)) =>
-                wrr.serialize(AccountState {
-                    client,
-                    available: state.available,
-                    total: state.total,
-                    held: state.held,
-                    locked: state.locked,
-                }),
-            Err(e) => Err(e.into())
+            Ok((client, state)) => wrr.serialize(AccountState {
+                client,
+                available: state.available,
+                total: state.total,
+                held: state.held,
+                locked: state.locked,
+            }),
+            Err(e) => Err(e.into()),
         }?;
     }
     Ok(())

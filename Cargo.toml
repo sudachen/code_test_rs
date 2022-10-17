@@ -18,11 +18,16 @@ clap = "4.0.15"
 csv = "1.1"
 serde = { version = "1.0", features = ["derive"] }
 regex = "1"
+sled = "0.34.7"
+bson = "2.3.0"
 
 [[test]]
 name = "test_basic"
 path = "tests/test_basic.rs"
-#harness = false
+
+[[test]]
+name = "test_with_file"
+path = "tests/test_with_file.rs"
 
 [[bin]]
 name = "execute"
