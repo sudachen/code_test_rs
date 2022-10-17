@@ -83,13 +83,15 @@ pub trait Accountant {
     fn ledger(&self) -> &dyn Ledger;
 }
 
+pub type IterResult<T> = Result<T,std::io::Error>;
+
 pub trait Ledger<'q> {
     fn get_account(&self, client: Client) -> Result<Option<Account>, std::io::Error>;
     fn put_account(&mut self, client: Client, account: Account) -> Result<(), std::io::Error>;
-    fn accounts(&'q self) -> Box<dyn Iterator<Item = (&'q Client, &'q Account)> + 'q>;
+    fn accounts(&'q self) -> Box<dyn Iterator<Item = IterResult<(&'q Client, &'q Account)>> + 'q>;
     fn get_transaction(&self, tx_id: TxId) -> Result<Option<Transaction>, std::io::Error>;
     fn put_transaction(&mut self, tx_id: TxId, tx: Transaction) -> Result<(), std::io::Error>;
-    fn transactions(&'q self) -> Box<dyn Iterator<Item = (&'q TxId, &'q Transaction)> + 'q>;
+    fn transactions(&'q self) -> Box<dyn Iterator<Item = IterResult<(&'q TxId, &'q Transaction)>> + 'q>;
 }
 
 impl Debug for dyn Accountant {

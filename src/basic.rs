@@ -1,7 +1,7 @@
-use crate::common::{Ledger as LedgerTrait, Accountant as AccountantTrait, *};
+use crate::common::{Accountant as AccountantTrait, Ledger as LedgerTrait, *};
 use core::default::Default;
 use rust_decimal::Decimal;
-use std::collections::HashMap; // IDE consistently adds wrong import
+use std::collections::HashMap;
 
 #[derive(Clone, Debug)]
 pub struct Accountant<L: Clone + for<'q> LedgerTrait<'q> = Ledger> {
@@ -218,6 +218,17 @@ pub struct Ledger {
     accounts: HashMap<Client, Account>,
 }
 
+struct Itr<T: Iterator>(T);
+impl<T: Iterator> Iterator for Itr<T> {
+    type Item = IterResult<T::Item>;
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.0.next() {
+            Some(v) => Some(Ok(v)),
+            _ => None,
+        }
+    }
+}
+
 impl<'q> LedgerTrait<'q> for Ledger {
     fn get_account(&self, client: Client) -> Result<Option<Account>, std::io::Error> {
         Ok(self.accounts.get(&client).copied())
@@ -226,8 +237,8 @@ impl<'q> LedgerTrait<'q> for Ledger {
         self.accounts.insert(client, account);
         Ok(())
     }
-    fn accounts(&'q self) -> Box<dyn Iterator<Item = (&'q Client, &'q Account)> + 'q> {
-        Box::new(self.accounts.iter())
+    fn accounts(&'q self) -> Box<dyn Iterator<Item = IterResult<(&'q Client, &'q Account)>> + 'q> {
+        Box::new(Itr(self.accounts.iter()))
     }
     fn get_transaction(&self, tx_id: TxId) -> Result<Option<Transaction>, std::io::Error> {
         Ok(self.transactions.get(&tx_id).copied())
@@ -236,7 +247,9 @@ impl<'q> LedgerTrait<'q> for Ledger {
         self.transactions.insert(tx_id, tx);
         Ok(())
     }
-    fn transactions(&'q self) -> Box<dyn Iterator<Item = (&'q TxId, &'q Transaction)> + 'q> {
-        Box::new(self.transactions.iter())
+    fn transactions(
+        &'q self,
+    ) -> Box<dyn Iterator<Item = IterResult<(&'q TxId, &'q Transaction)>> + 'q> {
+        Box::new(Itr(self.transactions.iter()))
     }
 }

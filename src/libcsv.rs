@@ -105,14 +105,18 @@ pub fn validate_accounts(rd: impl std::io::Read, bank: &mut dyn Accountant) -> R
 
 pub fn dump_accounts(wr: impl std::io::Write, bank: &mut dyn Accountant) -> Result<(), ExecError> {
     let mut wrr = csv::WriterBuilder::new().delimiter(b',').from_writer(wr);
-    for (&client, state) in bank.ledger().accounts() {
-        wrr.serialize(AccountState {
-            client,
-            available: state.available,
-            total: state.total,
-            held: state.held,
-            locked: state.locked,
-        })?
+    for pair in bank.ledger().accounts() {
+        match pair {
+            Ok((&client,state)) =>
+                wrr.serialize(AccountState {
+                    client,
+                    available: state.available,
+                    total: state.total,
+                    held: state.held,
+                    locked: state.locked,
+                })?,
+            e => { e?; }
+        }
     }
     Ok(())
 }
