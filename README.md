@@ -26,7 +26,7 @@ client,available,held,total,locked
 2,2,0,2,false
 ```
 
-It has set of cucumber tests for specific cases. To ran tests use:
+It has a set of cucumber tests for specific cases. To run tests use:
 ```console
 [sudachen/sudachen_code_test_rs.git|master] ../toybank$ cargo test
    Compiling toybank v0.1.0 (/Projects/kraken/toybank)
