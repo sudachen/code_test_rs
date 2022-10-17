@@ -114,9 +114,9 @@ pub fn dump_accounts(wr: impl std::io::Write, bank: &mut dyn Accountant) -> Resu
                     total: state.total,
                     held: state.held,
                     locked: state.locked,
-                })?,
-            e => { e?; }
-        }
+                }),
+            Err(e) => Err(e.into())
+        }?;
     }
     Ok(())
 }
