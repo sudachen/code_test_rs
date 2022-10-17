@@ -8,24 +8,24 @@ use std::fmt::Debug;
 use std::marker::PhantomData;
 use cucumber::codegen::Regex;
 use rust_decimal::Decimal;
-use toybank::common::{Bank,TxError,Policy};
+use toybank::common::{Accountant, TxError, Policy};
 
-pub type DynBank = Box::<dyn Bank>;
-pub fn dyn_wrap<T: Bank + 'static>(t: T) -> DynBank { Box::new(t) }
+pub type Dyna = Box::<dyn Accountant>;
+pub fn dyna_make<T: Accountant + 'static>(t: T) -> Dyna { Box::new(t) }
 
 pub trait Factory {
-    fn open(ledger: Option<String>, policy: Policy) -> DynBank;
-    fn new(ledger: Option<String>, policy: Policy) -> DynBank;
+    fn open(ledger: Option<String>, policy: Policy) -> Dyna;
+    fn new(ledger: Option<String>, policy: Policy) -> Dyna;
 }
 
 pub trait CustomTest {
     fn new_ledger(&mut self, _leger: Option<String>) { panic!("uninitialized") }
     fn open_ledger(&mut self, _leger: Option<String>) { panic!("uninitialized") }
-    fn dyn_bank(&mut self) -> &mut dyn Bank { panic!("uninitialized") }
+    fn dyn_bank(&mut self) -> &mut dyn Accountant { panic!("uninitialized") }
 }
 
 #[derive(Default)]
-struct CustomTestImpl<F:Factory>(Option<DynBank>,Policy,PhantomData<F>);
+struct CustomTestImpl<F:Factory>(Option<Dyna>, Policy, PhantomData<F>);
 
 impl<F:Factory> CustomTest for CustomTestImpl<F> {
     fn new_ledger(&mut self, leger: Option<String>) {
@@ -36,7 +36,7 @@ impl<F:Factory> CustomTest for CustomTestImpl<F> {
         self.0 = Some(F::open(leger, self.1))
     }
 
-    fn dyn_bank(&mut self) -> &mut dyn Bank {
+    fn dyn_bank(&mut self) -> &mut dyn Accountant {
         if let Some(x) = &mut self.0 { return &mut **x }
         panic!("ledger is not selected")
     }

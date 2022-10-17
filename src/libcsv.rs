@@ -1,4 +1,4 @@
-use crate::common::{Account, Bank, Client, TxError, TxId, TxType};
+use crate::common::{Account, Accountant, Client, TxError, TxId, TxType};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
@@ -35,12 +35,12 @@ pub enum ExecError {
     TxError(#[from] TxError),
 }
 
-pub fn execute_csv_file(path: impl AsRef<Path>, bank: &mut dyn Bank) -> Result<(), ExecError> {
+pub fn execute_csv_file(path: impl AsRef<Path>, bank: &mut dyn Accountant) -> Result<(), ExecError> {
     let mut f = std::fs::File::open(path)?;
     execute_csv(&mut f, bank)
 }
 
-pub fn execute_csv(rd: impl std::io::Read, bank: &mut dyn Bank) -> Result<(), ExecError> {
+pub fn execute_csv(rd: impl std::io::Read, bank: &mut dyn Accountant) -> Result<(), ExecError> {
     let mut rdr = csv::ReaderBuilder::new()
         .delimiter(b',')
         .comment(Some(b'#'))
@@ -68,7 +68,7 @@ pub fn execute_csv(rd: impl std::io::Read, bank: &mut dyn Bank) -> Result<(), Ex
     Ok(())
 }
 
-pub fn validate_accounts(rd: impl std::io::Read, bank: &mut dyn Bank) -> Result<(), ExecError> {
+pub fn validate_accounts(rd: impl std::io::Read, bank: &mut dyn Accountant) -> Result<(), ExecError> {
     let mut rdr = csv::ReaderBuilder::new()
         .delimiter(b',')
         .trim(csv::Trim::All)
@@ -103,7 +103,7 @@ pub fn validate_accounts(rd: impl std::io::Read, bank: &mut dyn Bank) -> Result<
     Ok(())
 }
 
-pub fn dump_accounts(wr: impl std::io::Write, bank: &mut dyn Bank) -> Result<(), ExecError> {
+pub fn dump_accounts(wr: impl std::io::Write, bank: &mut dyn Accountant) -> Result<(), ExecError> {
     let mut wrr = csv::WriterBuilder::new().delimiter(b',').from_writer(wr);
     for (&client, state) in bank.ledger().accounts() {
         wrr.serialize(AccountState {

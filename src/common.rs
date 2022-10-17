@@ -74,7 +74,7 @@ pub struct Policy {
     pub allow_negative_balance_for_dispute: bool
 }
 
-pub trait Bank {
+pub trait Accountant {
     fn deposit(&mut self, client: Client, tx_id: TxId, amount: Decimal) -> Result<(), TxError>;
     fn withdrawal(&mut self, client: Client, tx_id: TxId, amount: Decimal) -> Result<(), TxError>;
     fn dispute(&mut self, client: Client, tx_id: TxId) -> Result<(), TxError>;
@@ -92,8 +92,9 @@ pub trait Ledger<'q> {
     fn transactions(&'q self) -> Box<dyn Iterator<Item = (&'q TxId, &'q Transaction)> + 'q>;
 }
 
-impl Debug for dyn Bank {
+impl Debug for dyn Accountant {
+    // TODO: use accounts() and transactions() iterators to format debug dump
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "Bank")
+        write!(f, "Accountant")
     }
 }

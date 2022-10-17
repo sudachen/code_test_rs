@@ -1,4 +1,4 @@
-use crate::common::{Ledger as LedgerTrait, *};
+use crate::common::{Ledger as LedgerTrait, Accountant as AccountantTrait, *};
 use core::default::Default;
 use rust_decimal::Decimal;
 use std::collections::HashMap; // IDE consistently adds wrong import
@@ -15,7 +15,7 @@ impl Default for Accountant {
     }
 }
 
-impl<L: for<'q> LedgerTrait<'q> + Clone> Bank for Accountant<L> {
+impl<L: for<'q> LedgerTrait<'q> + Clone> AccountantTrait for Accountant<L> {
     fn deposit(&mut self, client: Client, tx_id: TxId, amount: Decimal) -> Result<(), TxError> {
         let opt_acc = self.ledger.get_account(client)?;
         if self.ledger.get_transaction(tx_id)?.is_some() {
