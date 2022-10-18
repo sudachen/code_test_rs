@@ -4,7 +4,7 @@ use std::fmt::Debug;
 use thiserror::Error;
 
 #[derive(Copy, Clone, Default, PartialEq, Debug, Eq, Hash, Serialize, Deserialize)]
-pub struct Client(u16);
+pub struct Client(pub u16);
 impl From<u32> for Client {
     fn from(v: u32) -> Self {
         Client(v as u16)
@@ -12,7 +12,7 @@ impl From<u32> for Client {
 }
 
 #[derive(Copy, Clone, Default, PartialEq, Debug, Eq, Hash, Serialize, Deserialize)]
-pub struct TxId(u32);
+pub struct TxId(pub u32);
 impl From<u32> for TxId {
     fn from(v: u32) -> Self {
         TxId(v as u32)
@@ -29,6 +29,8 @@ pub enum TxError {
     Ignored(String),
     #[error(transparent)]
     IOError(#[from] std::io::Error),
+    #[error("")]
+    Empty
 }
 
 #[derive(Copy, Clone, Debug, Serialize, Deserialize)]

@@ -177,7 +177,7 @@ fn execute_csv(w: &mut Test, step: &Step) {
 fn validate_accounts(w: &mut Test, step: &Step) {
     let x = step.docstring.clone().unwrap();
     if let Err(e) =
-        toybank::libcsv::validate_accounts(std::io::Cursor::new(x.as_bytes()), w.0.dyn_bank())
+        toybank::libcsv::validate_accounts(std::io::Cursor::new(x.as_bytes()), w.0.dyn_bank().ledger())
     {
         assert!(false, "error occured: {e}")
     }

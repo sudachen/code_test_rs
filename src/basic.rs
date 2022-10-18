@@ -1,12 +1,12 @@
-use crate::common::{Accountant as AccountantTrait, Ledger as LedgerTrait, *};
 use core::default::Default;
 use rust_decimal::Decimal;
 use std::collections::HashMap;
+use crate::common::{Accountant as AccountantTrait, Ledger as LedgerTrait, *};
 
 #[derive(Clone, Debug)]
 pub struct Accountant<L: Clone + for<'q> LedgerTrait<'q> = Ledger> {
     policy: Policy,
-    ledger: L,
+    ledger_: L,
 }
 
 impl Default for Accountant {
@@ -17,8 +17,8 @@ impl Default for Accountant {
 
 impl<L: for<'q> LedgerTrait<'q> + Clone> AccountantTrait for Accountant<L> {
     fn deposit(&mut self, client: Client, tx_id: TxId, amount: Decimal) -> Result<(), TxError> {
-        let opt_acc = self.ledger.get_account(client)?;
-        if self.ledger.get_transaction(tx_id)?.is_some() {
+        let opt_acc = self.ledger_.get_account(client)?;
+        if self.ledger_.get_transaction(tx_id)?.is_some() {
             return Err(TxError::Ignored("duplicated transaction".to_string()));
         }
         if let Some(acc) = &opt_acc {
@@ -26,7 +26,7 @@ impl<L: for<'q> LedgerTrait<'q> + Clone> AccountantTrait for Accountant<L> {
                 return Err(TxError::Rejected("account is locked".to_string()));
             }
         }
-        self.ledger.put_transaction(
+        self.ledger_.put_transaction(
             tx_id,
             Transaction {
                 client,
@@ -34,7 +34,7 @@ impl<L: for<'q> LedgerTrait<'q> + Clone> AccountantTrait for Accountant<L> {
                 state: TxState::Committed,
             },
         )?;
-        self.ledger.put_account(
+        self.ledger_.put_account(
             client,
             match opt_acc {
                 Some(acc) => Account {
@@ -52,11 +52,11 @@ impl<L: for<'q> LedgerTrait<'q> + Clone> AccountantTrait for Accountant<L> {
         Ok(())
     }
     fn withdrawal(&mut self, client: Client, tx_id: TxId, amount: Decimal) -> Result<(), TxError> {
-        let opt_acc = self.ledger.get_account(client)?;
+        let opt_acc = self.ledger_.get_account(client)?;
         match opt_acc {
             None => Err(TxError::Rejected("account does not exist".to_string())),
             Some(acc) if acc.locked => Err(TxError::Rejected("account is locked".to_string())),
-            Some(_) if self.ledger.get_transaction(tx_id)?.is_some() => {
+            Some(_) if self.ledger_.get_transaction(tx_id)?.is_some() => {
                 Err(TxError::Ignored("duplicated transaction".to_string()))
             }
             Some(acc) if acc.available < amount => {
@@ -65,7 +65,7 @@ impl<L: for<'q> LedgerTrait<'q> + Clone> AccountantTrait for Accountant<L> {
             Some(acc) => {
                 // store transaction for prevent double spending only,
                 // it can not be disputed
-                self.ledger.put_transaction(
+                self.ledger_.put_transaction(
                     tx_id,
                     Transaction {
                         client,
@@ -73,7 +73,7 @@ impl<L: for<'q> LedgerTrait<'q> + Clone> AccountantTrait for Accountant<L> {
                         state: TxState::Finalized,
                     },
                 )?;
-                self.ledger.put_account(
+                self.ledger_.put_account(
                     client,
                     Account {
                         available: acc.available - amount,
@@ -87,7 +87,7 @@ impl<L: for<'q> LedgerTrait<'q> + Clone> AccountantTrait for Accountant<L> {
     }
     fn dispute(&mut self, client: Client, tx_id: TxId) -> Result<(), TxError> {
         let (tx, acc) = self.get_and_check_tx_acc(client, tx_id, TxState::Committed)?;
-        self.ledger.put_account(
+        self.ledger_.put_account(
             client,
             Account {
                 available: acc.available - tx.amount,
@@ -98,7 +98,7 @@ impl<L: for<'q> LedgerTrait<'q> + Clone> AccountantTrait for Accountant<L> {
         // TODO: this means any IO error place storage into "required to repair" state
         // TODO: held/available may be corrected by summing dispute transactions after
         // TODO: repair
-        self.ledger.put_transaction(
+        self.ledger_.put_transaction(
             tx_id,
             Transaction {
                 state: TxState::Disputed,
@@ -109,7 +109,7 @@ impl<L: for<'q> LedgerTrait<'q> + Clone> AccountantTrait for Accountant<L> {
     }
     fn resolve(&mut self, client: Client, tx_id: TxId) -> Result<(), TxError> {
         let (tx, acc) = self.get_and_check_tx_acc(client, tx_id, TxState::Disputed)?;
-        self.ledger.put_account(
+        self.ledger_.put_account(
             client,
             Account {
                 available: acc.available + tx.amount,
@@ -120,7 +120,7 @@ impl<L: for<'q> LedgerTrait<'q> + Clone> AccountantTrait for Accountant<L> {
         // TODO: this means any IO error place storage into "requires repair" state
         // TODO: held/available may be corrected by summing dispute transactions after
         // TODO: repair
-        self.ledger.put_transaction(
+        self.ledger_.put_transaction(
             tx_id,
             Transaction {
                 // TODO: if it can be disputed again it must be TxState::Committed
@@ -132,7 +132,7 @@ impl<L: for<'q> LedgerTrait<'q> + Clone> AccountantTrait for Accountant<L> {
     }
     fn chargeback(&mut self, client: Client, tx_id: TxId) -> Result<(), TxError> {
         let (tx, acc) = self.get_and_check_tx_acc(client, tx_id, TxState::Disputed)?;
-        self.ledger.put_account(
+        self.ledger_.put_account(
             client,
             Account {
                 total: acc.total - tx.amount,
@@ -144,7 +144,7 @@ impl<L: for<'q> LedgerTrait<'q> + Clone> AccountantTrait for Accountant<L> {
         // TODO: this means any IO error place storage into "requires repair" state
         // TODO: held/available may be corrected by summing dispute transactions after
         // TODO: repair
-        self.ledger.put_transaction(
+        self.ledger_.put_transaction(
             tx_id,
             Transaction {
                 state: TxState::Cancelled,
@@ -154,19 +154,25 @@ impl<L: for<'q> LedgerTrait<'q> + Clone> AccountantTrait for Accountant<L> {
         Ok(())
     }
     fn ledger(&self) -> &dyn LedgerTrait {
-        &self.ledger
+        &self.ledger_
     }
 }
 
 impl<L: for<'q> LedgerTrait<'q> + Clone> Accountant<L> {
+    pub fn new(ledger: L) -> Self {
+        Self::with_policy(ledger,Default::default())
+    }
+    pub fn with_policy(ledger: L, policy: Policy) -> Self {
+        Self { ledger_: ledger, policy }
+    }
     fn get_and_check_tx_acc(
         &self,
         client: Client,
         tx_id: TxId,
         tx_state: TxState,
     ) -> Result<(Transaction, Account), TxError> {
-        let opt_tx = self.ledger.get_transaction(tx_id)?;
-        let opt_acc = self.ledger.get_account(client)?;
+        let opt_tx = self.ledger_.get_transaction(tx_id)?;
+        let opt_acc = self.ledger_.get_account(client)?;
         match (opt_tx, opt_acc) {
             (None, _) => Err(TxError::Rejected(
                 "deposit transaction does not exist".to_string(),
@@ -200,15 +206,6 @@ impl<L: for<'q> LedgerTrait<'q> + Clone> Accountant<L> {
             }
             (Some(tx), Some(acc)) => Ok((tx, acc)),
         }
-    }
-    pub fn new(ledger: L) -> Self {
-        Self {
-            ledger,
-            policy: Default::default(),
-        }
-    }
-    pub fn with_policy(ledger: L, policy: Policy) -> Self {
-        Self { ledger, policy }
     }
 }
 
