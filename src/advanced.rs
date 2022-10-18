@@ -19,13 +19,10 @@ impl Ledger {
     }
     pub fn new_empty(path: Option<String>) -> sled::Result<Ledger> {
         match path {
-            Some(path) => match sled::Config::default().path(path).open() {
-                Ok(db) => match db.clear() {
-                    Ok(_) => Ok(db),
-                    Err(e) => Err(e),
-                },
-                e => e,
-            },
+            Some(path) => sled::Config::default().path(path).open().and_then(|db| {
+                db.clear()?;
+                Ok(db)
+            }),
             None => sled::Config::default().temporary(true).open(),
         }
         .map(|db| Ledger(db))
