@@ -106,7 +106,7 @@ fn new_leger(w: &mut Test, name: String) {
     }
 }
 
-#[given(regex = r"open\s+ledger(\s+[^\s]+)?")]
+#[given(regex = r"existing\s+ledger(\s+[^\s]+)?")]
 fn open_leger(w: &mut Test, name: String) {
     w.0.open_ledger(name.trim().into())
 }

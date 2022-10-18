@@ -42,7 +42,7 @@ Feature: Advanced Csv Processing
       """
 
   Scenario: reuse ledger
-    Given open ledger tests/test.ledger
+    Given existing ledger tests/test.ledger
       Then validate accounts
         """
         client,     available,  held, total,  locked
