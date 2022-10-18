@@ -76,8 +76,8 @@ fn decode<'a, A: Deserialize<'a>, B: Deserialize<'a>>(
     match v {
         Ok((a, b)) => match (bson::from_slice(a), bson::from_slice(b)) {
             (Ok(a), Ok(b)) => Ok((a, b)),
-            (Err(e), _) => Err(std::io::Error::new(AnotherError, e)),
-            (Ok(_), Err(e)) => Err(std::io::Error::new(AnotherError, e)),
+            (Err(e), _) | (Ok(_), Err(e)) =>
+                Err(std::io::Error::new(AnotherError, e))
         },
         Err(e) => Err(std::io::Error::new(AnotherError, e.clone())),
     }
