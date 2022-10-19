@@ -53,10 +53,10 @@ Feature: Csv Processing
 ```
 
 The code is divided into the following modules:
-- The module [common](src/common.rs) defining constants, errors, traits Accountant, Ledger, etc.
-- The module [basic](src/basic.rs) defining basic implementation of Accountant and Ledger.
+- The module [common](src/common.rs) defining constants, errors, traits Ledger, etc.
+- The module [basic](src/basic.rs) defining basic implementation of Ledger with HashMap.
 - The module [libcsv](src/libcsv.rs) defining csv processing functions.
 
 The main program [execute](/src/bin/execute.rs) is in the src/bin subdirectory. 
-It uses basic implementation of Accountant and Ledger to process transactions from a CSV file.  
+It uses basic implementation of Ledger to process transactions from a CSV file.  
 
