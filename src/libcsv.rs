@@ -1,10 +1,10 @@
-use crate::common::{Account, Accountant, Client, Ledger, TxError, TxId, TxType};
+use crate::common::{Account, Client, Ledger, TxError, TxId, TxType};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 use thiserror::Error;
 
-#[derive(Deserialize,Debug)]
+#[derive(Deserialize, Debug)]
 pub(crate) struct TxRequest {
     #[serde(rename = "type")]
     pub tx_type: TxType,
@@ -35,15 +35,12 @@ pub enum ExecError {
     TxError(#[from] TxError),
 }
 
-pub fn execute_csv_file(
-    path: impl AsRef<Path>,
-    bank: &mut dyn Accountant,
-) -> Result<(), ExecError> {
+pub fn execute_csv_file(path: impl AsRef<Path>, ledger: &mut dyn Ledger) -> Result<(), ExecError> {
     let mut f = std::fs::File::open(path)?;
-    execute_csv(&mut f, bank)
+    execute_csv(&mut f, ledger)
 }
 
-pub fn execute_csv(rd: impl std::io::Read, accountant: &mut dyn Accountant) -> Result<(), ExecError> {
+pub fn execute_csv(rd: impl std::io::Read, ledger: &mut dyn Ledger) -> Result<(), ExecError> {
     let mut rdr = csv::ReaderBuilder::new()
         .delimiter(b',')
         .comment(Some(b'#'))
@@ -54,13 +51,13 @@ pub fn execute_csv(rd: impl std::io::Read, accountant: &mut dyn Accountant) -> R
         let r: TxRequest = result?;
         use TxType::*;
         let err = match (r.tx_type, r.amount) {
-            (Deposit, Some(amount)) => accountant.deposit(r.client, r.tx_id, amount),
+            (Deposit, Some(amount)) => ledger.deposit(r.client, r.tx_id, amount),
             (Deposit, None) => Err(TxError::StringError("deposit has no amount".into())),
-            (Withdrawal, Some(amount)) => accountant.withdrawal(r.client, r.tx_id, amount),
+            (Withdrawal, Some(amount)) => ledger.withdrawal(r.client, r.tx_id, amount),
             (Withdrawal, None) => Err(TxError::StringError("withdrawal has no amount".into())),
-            (Dispute, _) => accountant.dispute(r.client, r.tx_id),
-            (Resolve, _) => accountant.resolve(r.client, r.tx_id),
-            (Chargeback, _) => accountant.chargeback(r.client, r.tx_id),
+            (Dispute, _) => ledger.dispute(r.client, r.tx_id),
+            (Resolve, _) => ledger.resolve(r.client, r.tx_id),
+            (Chargeback, _) => ledger.chargeback(r.client, r.tx_id),
         };
         match err {
             Err(TxError::Rejected(_e)) => Ok(()),
@@ -71,10 +68,7 @@ pub fn execute_csv(rd: impl std::io::Read, accountant: &mut dyn Accountant) -> R
     Ok(())
 }
 
-pub fn validate_accounts(
-    rd: impl std::io::Read,
-    ledger: &dyn Ledger,
-) -> Result<(), ExecError> {
+pub fn validate_accounts(rd: impl std::io::Read, ledger: &dyn Ledger) -> Result<(), ExecError> {
     let mut rdr = csv::ReaderBuilder::new()
         .delimiter(b',')
         .trim(csv::Trim::All)
@@ -109,7 +103,7 @@ pub fn validate_accounts(
     Ok(())
 }
 
-pub fn dump_accounts<'q>(wr: impl std::io::Write, ledger: &'q (dyn Ledger<'q> + 'q)) -> Result<(), ExecError> {
+pub fn dump_accounts(wr: impl std::io::Write, ledger: &dyn Ledger) -> Result<(), ExecError> {
     let mut wrr = csv::WriterBuilder::new().delimiter(b',').from_writer(wr);
     for pair in ledger.accounts() {
         match pair {

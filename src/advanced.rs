@@ -1,5 +1,4 @@
-use crate::basic::Accountant as BasicAccountant;
-use crate::common::{Accountant as AccountantTrait, Ledger as LedgerTrait, *};
+use crate::common::*;
 use crate::libcsv::{ExecError, TxRequest};
 use crossbeam::sync::WaitGroup;
 use crossbeam_channel::{bounded, unbounded, Sender, TryRecvError};
@@ -11,71 +10,19 @@ use std::thread;
 
 const MSG_QUEUE_LENGTH: usize = 8;
 
-#[test]
-fn test_concurrent_csv_processing() -> Result<(), ExecError> {
-    use crate::libcsv::validate_accounts;
-    let sample = r#"# CSV sample
-type,       client, tx, amount
-deposit,    1,      1,  1.0
-# 1 -> 1.0/0/1.0/false
-deposit,    2,      2,  2.0
-# 2 -> 2.0/0/2.0/false
-deposit,    3,      3,  3.0
-# 3 -> 3.0/0/3.0/false
-withdrawal, 1,      4,  1.1
-# rejected
-withdrawal, 2,      5,  1.1111
-# 2 -> 0.8889/0/0.8889/false
-dispute,    1,      4,
-# 1 -> 0/1.0/1.0/false
-resolve,    1,      3
-# rejected
-resolve,    1,      4
-# 1 -> 1.0/0/1.0/false
-dispute,    1,      4
-# rejected
-dispute,    2,      2
-# rejected
-deposit,    2,      5, 4.1111
-# rejected
-deposit,    2,      6, 4.1111
-# 2 -> 5.0/0/5.0/false
-dispute,    2,      2
-# 2 -> 3.0/2.0/5.0/false
-chargeback, 2,      2
-# 2 -> 3.0/0/3.0/true
-"#;
-    let ledger = Ledger::new().unwrap();
-    concurrent_execute_csv(
-        Some(3),
-        std::io::Cursor::new(sample.as_bytes()),
-        &ledger,
-        Default::default(),
-    )?;
-    let accounts = r#"
-client,     available,  held, total,  locked
-1,          1.0,        0,    1.0,    false
-2,          3.0,        0,    3.0,    true
-3,          3.0,        0,    3.0,    false
-"#;
-    validate_accounts(std::io::Cursor::new(accounts.as_bytes()), &ledger)
-}
-
-pub fn concurrent_execute_csv_file(
+pub fn concurrent_execute_csv_file<T: Ledger + Clone + Send + 'static>(
     concurrency: Option<usize>,
     path: impl AsRef<Path>,
-    ledger: &Ledger,
-    policy: Policy,
+    ledger: T,
 ) -> Result<(), ExecError> {
     let mut f = std::fs::File::open(path)?;
-    concurrent_execute_csv(concurrency, &mut f, ledger, policy)
+    concurrent_execute_csv(concurrency, &mut f, ledger)
 }
 
-pub fn concurrent_execute_csv(
+pub fn concurrent_execute_csv<T: Ledger + Clone + Send + 'static>(
     concurrency: Option<usize>,
     rd: impl std::io::Read,
-    ledger: &Ledger,
-    policy: Policy,
+    ledger: T,
 ) -> Result<(), ExecError> {
     let mut ch: Vec<Sender<TxRequest>> = Vec::new();
     let wg = WaitGroup::new();
@@ -88,19 +35,18 @@ pub fn concurrent_execute_csv(
         let res_s = res_s.clone();
         let (msg_s, msg_r) = bounded(MSG_QUEUE_LENGTH);
         ch.push(msg_s);
-        let ledger = ledger.clone();
         let wg = wg.clone();
+        let mut l = ledger.clone();
         thread::spawn(move || {
-            let mut acc = BasicAccountant::with_policy(ledger, policy);
             loop {
                 use TxType::*;
                 let res = match msg_r.recv() {
                     Ok(tx) => match tx.tx_type {
-                        Deposit => acc.deposit(tx.client, tx.tx_id, tx.amount.unwrap()),
-                        Withdrawal => acc.withdrawal(tx.client, tx.tx_id, tx.amount.unwrap()),
-                        Dispute => acc.dispute(tx.client, tx.tx_id),
-                        Resolve => acc.resolve(tx.client, tx.tx_id),
-                        Chargeback => acc.chargeback(tx.client, tx.tx_id),
+                        Deposit => l.deposit(tx.client, tx.tx_id, tx.amount.unwrap()),
+                        Withdrawal => l.withdrawal(tx.client, tx.tx_id, tx.amount.unwrap()),
+                        Dispute => l.dispute(tx.client, tx.tx_id),
+                        Resolve => l.resolve(tx.client, tx.tx_id),
+                        Chargeback => l.chargeback(tx.client, tx.tx_id),
                     },
                     Err(_) => Err(TxError::Empty),
                 };
@@ -153,22 +99,23 @@ fn shard_it(index: u32, concurrency: usize) -> usize {
 }
 
 #[derive(Clone, Debug)]
-pub struct Ledger(sled::Db);
+pub struct SledLedger(sled::Db, Policy);
 
-impl Default for Ledger {
+impl Default for SledLedger {
     fn default() -> Self {
         Self::new().unwrap()
     }
 }
 
-impl Ledger {
-    pub fn open(path: String) -> sled::Result<Ledger> {
+impl SledLedger {
+    #[allow(dead_code)]
+    pub fn open(path: String, policy: Policy) -> sled::Result<SledLedger> {
         sled::Config::default()
             .path(path)
             .open()
-            .map(|db| Ledger(db))
+            .map(|db| SledLedger(db, policy))
     }
-    pub fn new_empty(path: Option<String>) -> sled::Result<Ledger> {
+    pub fn new_empty(path: Option<String>, policy: Policy) -> sled::Result<SledLedger> {
         match path {
             Some(path) => sled::Config::default().path(path).open().and_then(|db| {
                 db.clear()?;
@@ -176,10 +123,11 @@ impl Ledger {
             }),
             None => sled::Config::default().temporary(true).open(),
         }
-        .map(|db| Ledger(db))
+        .map(|db| SledLedger(db, policy))
     }
-    pub fn new() -> sled::Result<Ledger> {
-        Self::new_empty(None)
+    #[allow(dead_code)]
+    pub fn new() -> sled::Result<SledLedger> {
+        Self::new_empty(None, Default::default())
     }
 }
 
@@ -191,7 +139,10 @@ struct Rec<K, V> {
 type AccRec = Rec<Client, Account>;
 type TxRec = Rec<TxId, Transaction>;
 
-impl<'q> LedgerTrait<'q> for Ledger {
+impl Ledger for SledLedger {
+    fn policy(&self) -> Policy {
+        self.1
+    }
     fn get_account(&self, client: Client) -> Result<Option<Account>, IoError> {
         get::<AccRec>(&self.0.get(format!("1'{:?}", client))).map(|x| x.map(|r| r.v))
     }
@@ -209,7 +160,7 @@ impl<'q> LedgerTrait<'q> for Ledger {
             .map_err(|e| std::io::Error::new(AnotherError, e))?;
         Ok(())
     }
-    fn accounts(&'q self) -> Box<dyn Iterator<Item = IterResult<(Client, Account)>> + 'q> {
+    fn accounts<'q>(&'q self) -> Box<dyn Iterator<Item = IterResult<(Client, Account)>> + 'q> {
         Box::new(self.0.range("1'0".."2'0").map(|v| decode(&v)))
     }
     fn get_transaction(&self, tx_id: TxId) -> Result<Option<Transaction>, std::io::Error> {
@@ -225,7 +176,9 @@ impl<'q> LedgerTrait<'q> for Ledger {
             .map_err(|e| std::io::Error::new(AnotherError, e))?;
         Ok(())
     }
-    fn transactions(&'q self) -> Box<dyn Iterator<Item = IterResult<(TxId, Transaction)>> + 'q> {
+    fn transactions<'q>(
+        &'q self,
+    ) -> Box<dyn Iterator<Item = IterResult<(TxId, Transaction)>> + 'q> {
         Box::new(self.0.range("2'0"..).map(|v| decode(&v)))
     }
 }
@@ -253,4 +206,19 @@ fn get<'a, T: Deserialize<'a>>(
             Ok(a) => Ok(Some(a)),
         },
     }
+}
+
+#[test]
+fn test_concurrent_csv_processing_1() -> Result<(), ExecError> {
+    use crate::libcsv::validate_accounts;
+    let ledger = SledLedger::new().unwrap();
+    concurrent_execute_csv(
+        Some(3),
+        std::io::Cursor::new(crate::basic::TRANSACTIONS.as_bytes()),
+        ledger.clone(),
+    )?;
+    validate_accounts(
+        std::io::Cursor::new(crate::basic::ACCOUNTS.as_bytes()),
+        &ledger,
+    )
 }

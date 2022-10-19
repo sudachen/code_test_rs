@@ -1,18 +1,15 @@
 mod suite;
-use toybank::advanced::Ledger;
-use toybank::basic::Accountant;
+use toybank::advanced::SledLedger;
 use toybank::common::Policy;
 
 struct TheFactory;
 
 impl suite::Factory for TheFactory {
     fn open(name: String, policy: Policy) -> suite::Dyna {
-        let ledger = Ledger::open(name).unwrap();
-        return suite::dyna_make(Accountant::with_policy(ledger, policy));
+        return Box::new(SledLedger::open(name, policy).unwrap());
     }
     fn new(name: Option<String>, policy: Policy) -> suite::Dyna {
-        let ledger = Ledger::new_empty(name).unwrap();
-        return suite::dyna_make(Accountant::with_policy(ledger, policy));
+        return Box::new(SledLedger::new_empty(name, policy).unwrap());
     }
 }
 

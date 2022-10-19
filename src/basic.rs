@@ -1,221 +1,29 @@
+use crate::common::*;
 use core::default::Default;
-use rust_decimal::Decimal;
 use std::collections::HashMap;
-use crate::common::{Accountant as AccountantTrait, Ledger as LedgerTrait, *};
-
-#[derive(Clone, Debug)]
-pub struct Accountant<L: Clone + for<'q> LedgerTrait<'q> = Ledger> {
-    policy: Policy,
-    ledger_: L,
-}
-
-impl Default for Accountant {
-    fn default() -> Accountant {
-        return Self::new(Ledger::default());
-    }
-}
-
-impl<L: for<'q> LedgerTrait<'q> + Clone> AccountantTrait for Accountant<L> {
-    fn deposit(&mut self, client: Client, tx_id: TxId, amount: Decimal) -> Result<(), TxError> {
-        let opt_acc = self.ledger_.get_account(client)?;
-        if self.ledger_.get_transaction(tx_id)?.is_some() {
-            return Err(TxError::Ignored("duplicated transaction".to_string()));
-        }
-        if let Some(acc) = &opt_acc {
-            if acc.locked {
-                return Err(TxError::Rejected("account is locked".to_string()));
-            }
-        }
-        self.ledger_.put_transaction(
-            tx_id,
-            Transaction {
-                client,
-                amount,
-                state: TxState::Committed,
-            },
-        )?;
-        self.ledger_.put_account(
-            client,
-            match opt_acc {
-                Some(acc) => Account {
-                    available: amount + acc.available,
-                    total: amount + acc.total,
-                    ..acc
-                },
-                None => Account {
-                    available: amount,
-                    total: amount,
-                    ..Default::default()
-                },
-            },
-        )?;
-        Ok(())
-    }
-    fn withdrawal(&mut self, client: Client, tx_id: TxId, amount: Decimal) -> Result<(), TxError> {
-        let opt_acc = self.ledger_.get_account(client)?;
-        match opt_acc {
-            None => Err(TxError::Rejected("account does not exist".to_string())),
-            Some(acc) if acc.locked => Err(TxError::Rejected("account is locked".to_string())),
-            Some(_) if self.ledger_.get_transaction(tx_id)?.is_some() => {
-                Err(TxError::Ignored("duplicated transaction".to_string()))
-            }
-            Some(acc) if acc.available < amount => {
-                Err(TxError::Rejected("insufficient funds".to_string()))
-            }
-            Some(acc) => {
-                // store transaction for prevent double spending only,
-                // it can not be disputed
-                self.ledger_.put_transaction(
-                    tx_id,
-                    Transaction {
-                        client,
-                        amount,
-                        state: TxState::Finalized,
-                    },
-                )?;
-                self.ledger_.put_account(
-                    client,
-                    Account {
-                        available: acc.available - amount,
-                        total: acc.total - amount,
-                        ..acc
-                    },
-                )?;
-                Ok(())
-            }
-        }
-    }
-    fn dispute(&mut self, client: Client, tx_id: TxId) -> Result<(), TxError> {
-        let (tx, acc) = self.get_and_check_tx_acc(client, tx_id, TxState::Committed)?;
-        self.ledger_.put_account(
-            client,
-            Account {
-                available: acc.available - tx.amount,
-                held: acc.held + tx.amount,
-                ..acc
-            },
-        )?;
-        // TODO: this means any IO error place storage into "required to repair" state
-        // TODO: held/available may be corrected by summing dispute transactions after
-        // TODO: repair
-        self.ledger_.put_transaction(
-            tx_id,
-            Transaction {
-                state: TxState::Disputed,
-                ..tx
-            },
-        )?;
-        Ok(())
-    }
-    fn resolve(&mut self, client: Client, tx_id: TxId) -> Result<(), TxError> {
-        let (tx, acc) = self.get_and_check_tx_acc(client, tx_id, TxState::Disputed)?;
-        self.ledger_.put_account(
-            client,
-            Account {
-                available: acc.available + tx.amount,
-                held: acc.held - tx.amount,
-                ..acc
-            },
-        )?;
-        // TODO: this means any IO error place storage into "requires repair" state
-        // TODO: held/available may be corrected by summing dispute transactions after
-        // TODO: repair
-        self.ledger_.put_transaction(
-            tx_id,
-            Transaction {
-                // TODO: if it can be disputed again it must be TxState::Committed
-                state: TxState::Finalized,
-                ..tx
-            },
-        )?;
-        Ok(())
-    }
-    fn chargeback(&mut self, client: Client, tx_id: TxId) -> Result<(), TxError> {
-        let (tx, acc) = self.get_and_check_tx_acc(client, tx_id, TxState::Disputed)?;
-        self.ledger_.put_account(
-            client,
-            Account {
-                total: acc.total - tx.amount,
-                held: acc.held - tx.amount,
-                locked: true,
-                ..acc
-            },
-        )?;
-        // TODO: this means any IO error place storage into "requires repair" state
-        // TODO: held/available may be corrected by summing dispute transactions after
-        // TODO: repair
-        self.ledger_.put_transaction(
-            tx_id,
-            Transaction {
-                state: TxState::Cancelled,
-                ..tx
-            },
-        )?;
-        Ok(())
-    }
-    fn ledger(&self) -> &dyn LedgerTrait {
-        &self.ledger_
-    }
-}
-
-impl<L: for<'q> LedgerTrait<'q> + Clone> Accountant<L> {
-    pub fn new(ledger: L) -> Self {
-        Self::with_policy(ledger,Default::default())
-    }
-    pub fn with_policy(ledger: L, policy: Policy) -> Self {
-        Self { ledger_: ledger, policy }
-    }
-    fn get_and_check_tx_acc(
-        &self,
-        client: Client,
-        tx_id: TxId,
-        tx_state: TxState,
-    ) -> Result<(Transaction, Account), TxError> {
-        let opt_tx = self.ledger_.get_transaction(tx_id)?;
-        let opt_acc = self.ledger_.get_account(client)?;
-        match (opt_tx, opt_acc) {
-            (None, _) => Err(TxError::Rejected(
-                "deposit transaction does not exist".to_string(),
-            )),
-            (_, None) => Err(TxError::Rejected(
-                "disputed account does not exist".to_string(),
-            )),
-            (Some(tx), _) if tx.client != client => Err(TxError::Rejected(
-                "malicious transaction, wrong client".to_string(),
-            )),
-            (Some(tx), _) if tx.state != tx_state => match tx_state {
-                TxState::Committed if tx.state == TxState::Disputed => {
-                    Err(TxError::Ignored("already disputed".to_string()))
-                }
-                TxState::Disputed => {
-                    Err(TxError::Rejected("transaction is not disputed".to_string()))
-                }
-                _ => Err(TxError::Rejected("can not be disputed".to_string())),
-            },
-            // TODO: unknown case
-            (_, Some(acc)) if acc.locked => Err(TxError::Rejected("account is locked".to_string())),
-            // TODO: unknown case
-            (Some(tx), Some(acc))
-                if self.policy.allow_negative_balance_for_dispute != true
-                    && tx.state == TxState::Committed /* we do dispute */
-                    && tx.amount > acc.available =>
-            {
-                Err(TxError::Rejected(
-                    "insufficient funds for dispute".to_string(),
-                ))
-            }
-            (Some(tx), Some(acc)) => Ok((tx, acc)),
-        }
-    }
-}
 
 #[derive(Clone, Debug, Default)]
-pub struct Ledger {
+pub struct HashLedger {
     transactions: HashMap<TxId, Transaction>,
     accounts: HashMap<Client, Account>,
+    policy: Policy,
 }
 
-impl<'q> LedgerTrait<'q> for Ledger {
+impl HashLedger {
+    #[allow(dead_code)]
+    pub fn new() -> Self {
+        Default::default()
+    }
+    #[allow(dead_code)]
+    pub fn with_policy(policy: Policy) -> Self {
+        Self {
+            policy,
+            ..Default::default()
+        }
+    }
+}
+
+impl Ledger for HashLedger {
     fn get_account(&self, client: Client) -> Result<Option<Account>, std::io::Error> {
         Ok(self.accounts.get(&client).copied())
     }
@@ -223,7 +31,7 @@ impl<'q> LedgerTrait<'q> for Ledger {
         self.accounts.insert(client, account);
         Ok(())
     }
-    fn accounts(&'q self) -> Box<dyn Iterator<Item = IterResult<(Client, Account)>> + 'q> {
+    fn accounts<'q>(&'q self) -> Box<dyn Iterator<Item = IterResult<(Client, Account)>> + 'q> {
         Box::new(self.accounts.iter().map(|v| Ok((*v.0, *v.1))))
     }
     fn get_transaction(&self, tx_id: TxId) -> Result<Option<Transaction>, std::io::Error> {
@@ -233,7 +41,63 @@ impl<'q> LedgerTrait<'q> for Ledger {
         self.transactions.insert(tx_id, tx);
         Ok(())
     }
-    fn transactions(&'q self) -> Box<dyn Iterator<Item = IterResult<(TxId, Transaction)>> + 'q> {
+    fn transactions<'q>(
+        &'q self,
+    ) -> Box<dyn Iterator<Item = IterResult<(TxId, Transaction)>> + 'q> {
         Box::new(self.transactions.iter().map(|v| Ok((*v.0, *v.1))))
     }
+    fn policy(&self) -> Policy {
+        self.policy
+    }
+}
+
+#[cfg(test)]
+use crate::libcsv::{execute_csv, validate_accounts, ExecError};
+
+#[cfg(test)]
+pub const TRANSACTIONS: &str = r#"# CSV sample
+type,       client, tx, amount
+deposit,    1,      1,  1.0
+# 1 -> 1.0/0/1.0/false
+deposit,    2,      2,  2.0
+# 2 -> 2.0/0/2.0/false
+deposit,    3,      3,  3.0
+# 3 -> 3.0/0/3.0/false
+withdrawal, 1,      4,  1.1
+# rejected
+withdrawal, 2,      5,  1.1111
+# 2 -> 0.8889/0/0.8889/false
+dispute,    1,      4,
+# 1 -> 0/1.0/1.0/false
+resolve,    1,      3
+# rejected
+resolve,    1,      4
+# 1 -> 1.0/0/1.0/false
+dispute,    1,      4
+# rejected
+dispute,    2,      2
+# rejected
+deposit,    2,      5, 4.1111
+# rejected
+deposit,    2,      6, 4.1111
+# 2 -> 5.0/0/5.0/false
+dispute,    2,      2
+# 2 -> 3.0/2.0/5.0/false
+chargeback, 2,      2
+# 2 -> 3.0/0/3.0/true
+"#;
+
+#[cfg(test)]
+pub const ACCOUNTS: &str = r#"
+client,     available,  held, total,  locked
+1,          1.0,        0,    1.0,    false
+2,          3.0,        0,    3.0,    true
+3,          3.0,        0,    3.0,    false
+"#;
+
+#[test]
+fn test_csv_processing() -> Result<(), ExecError> {
+    let mut ledger = HashLedger::new();
+    execute_csv(std::io::Cursor::new(TRANSACTIONS.as_bytes()), &mut ledger)?;
+    validate_accounts(std::io::Cursor::new(ACCOUNTS.as_bytes()), &ledger)
 }

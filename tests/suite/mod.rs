@@ -8,12 +8,9 @@ use rust_decimal::Decimal;
 use std::default::Default;
 use std::fmt::Debug;
 use std::marker::PhantomData;
-use toybank::common::{Accountant, Policy, TxError};
+use toybank::common::{Ledger, Policy, TxError};
 
-pub type Dyna = Box<dyn Accountant>;
-pub fn dyna_make<T: Accountant + 'static>(t: T) -> Dyna {
-    Box::new(t)
-}
+pub type Dyna = Box<dyn Ledger>;
 
 pub trait Factory {
     fn open(ledger: String, policy: Policy) -> Dyna;
@@ -27,7 +24,7 @@ pub trait CustomTest {
     fn open_ledger(&mut self, _leger: String) {
         panic!("uninitialized")
     }
-    fn dyn_bank(&mut self) -> &mut dyn Accountant {
+    fn dyna(&mut self) -> &mut dyn Ledger {
         panic!("uninitialized")
     }
 }
@@ -44,7 +41,7 @@ impl<F: Factory> CustomTest for CustomTestImpl<F> {
         self.0 = Some(F::open(leger, self.1))
     }
 
-    fn dyn_bank(&mut self) -> &mut dyn Accountant {
+    fn dyna(&mut self) -> &mut dyn Ledger {
         if let Some(x) = &mut self.0 {
             return &mut **x;
         }
@@ -95,6 +92,7 @@ fn err(status: Result<(), TxError>, j: String) -> Result<(), String> {
         }
         Err(TxError::IOError(e)) => Err(format!("IoError: {e}")),
         Err(TxError::StringError(e)) => Err(format!("{e}")),
+        Err(TxError::Empty) => Err("empty".into()),
     }
 }
 
@@ -114,32 +112,32 @@ fn open_leger(w: &mut Test, name: String) {
 #[when(regex = r"tx\s+(\d+)\s+deposit\s+(\d*\.?\d+)\s+to\s+(\d+)(\s+rejected|\s+ignored)?")]
 fn deposit(w: &mut Test, tx: u32, a: String, c: u32, j: String) {
     let amount = Decimal::from_str_exact(a.as_str()).unwrap();
-    let status = w.0.dyn_bank().deposit(c.into(), tx.into(), amount);
+    let status = w.0.dyna().deposit(c.into(), tx.into(), amount);
     assert_eq!(err(status, j), Ok(()))
 }
 
 #[when(regex = r"tx\s+(\d+)\s+withdrawal\s+(\d*\.?\d+)\s+from\s+(\d+)(\s+rejected|\s+ignored)?")]
 fn withdrawal(w: &mut Test, tx: u32, a: String, c: u32, j: String) {
     let amount = Decimal::from_str_exact(a.as_str()).unwrap();
-    let status = w.0.dyn_bank().withdrawal(c.into(), tx.into(), amount);
+    let status = w.0.dyna().withdrawal(c.into(), tx.into(), amount);
     assert_eq!(err(status, j), Ok(()))
 }
 
 #[when(regex = r"dispute\s+(\d+)\s+for\s+(\d+)(\s+rejected|\s+ignored)?")]
 fn dispute(w: &mut Test, tx: u32, c: u32, j: String) {
-    let status = w.0.dyn_bank().dispute(c.into(), tx.into());
+    let status = w.0.dyna().dispute(c.into(), tx.into());
     assert_eq!(err(status, j), Ok(()))
 }
 
 #[when(regex = r"resolve\s+(\d+)\s+for\s+(\d+)(\s+rejected|\s+ignored)?")]
 fn resolve(w: &mut Test, tx: u32, c: u32, j: String) {
-    let status = w.0.dyn_bank().resolve(c.into(), tx.into());
+    let status = w.0.dyna().resolve(c.into(), tx.into());
     assert_eq!(err(status, j), Ok(()))
 }
 
 #[when(regex = r"chargeback\s+(\d+)\s+for\s+(\d+)(\s+rejected|\s+ignored)?")]
 fn chargeback(w: &mut Test, tx: u32, c: u32, j: String) {
-    let status = w.0.dyn_bank().chargeback(c.into(), tx.into());
+    let status = w.0.dyna().chargeback(c.into(), tx.into());
     assert_eq!(err(status, j), Ok(()))
 }
 
@@ -150,7 +148,7 @@ fn account_has(w: &mut Test, c: u32, t: String, a: String, h: String) {
     let available = Decimal::from_str_exact(a.as_str()).unwrap();
     let total = Decimal::from_str_exact(t.as_str()).unwrap();
     let held = Decimal::from_str_exact(h.as_str()).unwrap();
-    let acc = w.0.dyn_bank().ledger().get_account(c.into()).unwrap();
+    let acc = w.0.dyna().get_account(c.into()).unwrap();
     assert!(acc.is_some());
     assert_eq!(acc.unwrap().available, available);
     assert_eq!(acc.unwrap().total, total);
@@ -159,7 +157,7 @@ fn account_has(w: &mut Test, c: u32, t: String, a: String, h: String) {
 
 #[then(regex = r"account\s+(\d+)\s+is\s+locked")]
 fn account_is_locked(w: &mut Test, c: u32) {
-    let acc = w.0.dyn_bank().ledger().get_account(c.into()).unwrap();
+    let acc = w.0.dyna().get_account(c.into()).unwrap();
     assert!(acc.is_some());
     assert!(acc.unwrap().locked);
 }
@@ -167,8 +165,7 @@ fn account_is_locked(w: &mut Test, c: u32) {
 #[when("execute csv")]
 fn execute_csv(w: &mut Test, step: &Step) {
     let x = step.docstring.clone().unwrap();
-    if let Err(e) = toybank::libcsv::execute_csv(std::io::Cursor::new(x.as_bytes()), w.0.dyn_bank())
-    {
+    if let Err(e) = toybank::libcsv::execute_csv(std::io::Cursor::new(x.as_bytes()), w.0.dyna()) {
         assert!(false, "error occured: {e}")
     }
 }
@@ -177,7 +174,7 @@ fn execute_csv(w: &mut Test, step: &Step) {
 fn validate_accounts(w: &mut Test, step: &Step) {
     let x = step.docstring.clone().unwrap();
     if let Err(e) =
-        toybank::libcsv::validate_accounts(std::io::Cursor::new(x.as_bytes()), w.0.dyn_bank().ledger())
+        toybank::libcsv::validate_accounts(std::io::Cursor::new(x.as_bytes()), w.0.dyna())
     {
         assert!(false, "error occured: {e}")
     }
