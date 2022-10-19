@@ -1,6 +1,7 @@
 use clap::Parser;
 use std::path::Path;
-use toybank::basic::{Accountant, Ledger};
+use toybank::advanced::{concurrent_execute_csv_file, SledLedger};
+use toybank::basic::HashLedger;
 use toybank::common::Policy;
 use toybank::libcsv::{dump_accounts, execute_csv_file, ExecError};
 
@@ -16,12 +17,14 @@ struct Arguments {
     /// Allow negative balance for disputes
     #[clap(short = 'n')]
     allow_negative_dispute: bool,
-}
 
-fn doit_by_default(path: &Path, policy: Policy) -> Result<(), ExecError> {
-    let mut bank = Accountant::with_policy(Ledger::default(), policy);
-    execute_csv_file(path, &mut bank)?;
-    dump_accounts(std::io::stdout(), &mut bank)
+    /// Persistent ledger name
+    #[clap(long)]
+    ledger: Option<String>,
+
+    /// Drop ledger content on start)
+    #[clap(long = "drop")]
+    drop_on_start: bool,
 }
 
 fn main() -> Result<(), ExecError> {
@@ -30,5 +33,30 @@ fn main() -> Result<(), ExecError> {
         allow_negative_balance_for_dispute: args.allow_negative_dispute,
         ..Default::default()
     };
-    doit_by_default(Path::new(&args.input_file), policy)
+    let path = Path::new(&args.input_file);
+    let open_sled = match args.drop_on_start {
+        true => SledLedger::new_empty,
+        _ => |x, policy| match x {
+            Some(x) => SledLedger::open(x, policy),
+            _ => SledLedger::new_empty(None, policy),
+        },
+    };
+    match (args.ledger, args.concurrency) {
+        (n, Some(cc)) if cc > 1 => {
+            let ledger = open_sled(n, policy).map_err(|e| ExecError::StringError(e.to_string()))?;
+            concurrent_execute_csv_file(Some(cc), path, ledger.clone())?;
+            dump_accounts(std::io::stdout(), &ledger)
+        }
+        (Some(name), _) => {
+            let mut ledger =
+                open_sled(Some(name), policy).map_err(|e| ExecError::StringError(e.to_string()))?;
+            execute_csv_file(path, &mut ledger)?;
+            dump_accounts(std::io::stdout(), &ledger)
+        }
+        _ => {
+            let mut ledger = HashLedger::with_policy(policy);
+            execute_csv_file(path, &mut ledger)?;
+            dump_accounts(std::io::stdout(), &ledger)
+        }
+    }
 }
