@@ -1,8 +1,9 @@
 use clap::Parser;
 use std::path::Path;
-use toybank::advanced::{concurrent_execute_csv_file, SledLedger};
+use std::sync::{Arc, Mutex};
+use toybank::advanced::{sharded_execute_csv_file, SledLedger, index_by_client, sharded_dump_accounts};
 use toybank::basic::HashLedger;
-use toybank::common::Policy;
+use toybank::common::{Ledger, Policy};
 use toybank::libcsv::{dump_accounts, execute_csv_file, ExecError};
 
 #[derive(Parser, Default, Debug)]
@@ -10,7 +11,7 @@ struct Arguments {
     /// CSV file containing transactions
     input_file: String,
 
-    /// Level of transactions processing concurrency
+    /// Count of workers to process transactions, 0 means count of vCPUs
     #[clap(short = 'p')]
     concurrency: Option<usize>,
 
@@ -18,7 +19,7 @@ struct Arguments {
     #[clap(short = 'n')]
     allow_negative_dispute: bool,
 
-    /// Persistent ledger name
+    /// Persistent ledger name, or `inmem` to use inmem SledDB, otherwise hashtable is used
     #[clap(long)]
     ledger: Option<String>,
 
@@ -34,29 +35,43 @@ fn main() -> Result<(), ExecError> {
         ..Default::default()
     };
     let path = Path::new(&args.input_file);
-    let open_sled = match args.drop_on_start {
-        true => SledLedger::new_empty,
-        _ => |x, policy| match x {
-            Some(x) => SledLedger::open(x, policy),
-            _ => SledLedger::new_empty(None, policy),
-        },
+    let concurrency = match args.concurrency {
+        Some(0) => std::thread::available_parallelism().unwrap().get(),
+        Some(n) => n,
+        None => 1
     };
-    match (args.ledger, args.concurrency) {
-        (n, Some(cc)) if cc > 1 => {
-            let ledger = open_sled(n, policy).map_err(|e| ExecError::StringError(e.to_string()))?;
-            concurrent_execute_csv_file(Some(cc), path, ledger.clone())?;
-            dump_accounts(std::io::stdout(), &ledger)
-        }
-        (Some(name), _) => {
+    match args.ledger {
+        // SledDb
+        Some(name) => {
             let mut ledger =
-                open_sled(Some(name), policy).map_err(|e| ExecError::StringError(e.to_string()))?;
-            execute_csv_file(path, &mut ledger)?;
+                if name == "inmem" { SledLedger::new_empty(None, policy) }
+                else {
+                    match args.drop_on_start {
+                        true =>  SledLedger::new_empty(Some(name), policy),
+                        _ => SledLedger::open(name, policy)
+                    }
+                }.map_err(|e| ExecError::StringError(e.to_string()))?;
+            if concurrency > 1 {
+                let sharding = ledger.sharding(concurrency);
+                sharded_execute_csv_file(path, &sharding, index_by_client)
+            } else {
+                execute_csv_file(path, &mut ledger)
+            }?;
             dump_accounts(std::io::stdout(), &ledger)
         }
-        _ => {
-            let mut ledger = HashLedger::with_policy(policy);
-            execute_csv_file(path, &mut ledger)?;
-            dump_accounts(std::io::stdout(), &ledger)
+        // HashMap
+        None => {
+            if concurrency > 1 {
+                let sharding = (0..concurrency)
+                    .map(|_| Arc::new(Mutex::new(HashLedger::with_policy(policy))) as Arc<Mutex<dyn Ledger + Send>>)
+                    .collect();
+                sharded_execute_csv_file(path, &sharding, index_by_client)?;
+                sharded_dump_accounts(std::io::stdout(), &sharding, index_by_client)
+            } else {
+                let mut ledger = HashLedger::with_policy(policy);
+                execute_csv_file(path, &mut ledger)?;
+                dump_accounts(std::io::stdout(), &ledger)
+            }
         }
     }
 }

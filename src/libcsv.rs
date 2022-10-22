@@ -5,7 +5,7 @@ use std::path::Path;
 use thiserror::Error;
 
 #[derive(Deserialize, Debug)]
-pub(crate) struct TxRequest {
+pub struct TxRequest {
     #[serde(rename = "type")]
     pub tx_type: TxType,
     pub client: Client,
@@ -15,12 +15,12 @@ pub(crate) struct TxRequest {
 }
 
 #[derive(Deserialize, Serialize)]
-struct AccountState {
-    client: Client,
-    available: Decimal,
-    held: Decimal,
-    total: Decimal,
-    locked: bool,
+pub struct AccountState {
+    pub client: Client,
+    pub available: Decimal,
+    pub held: Decimal,
+    pub total: Decimal,
+    pub locked: bool,
 }
 
 #[derive(Error, Debug)]
@@ -69,6 +69,13 @@ pub fn execute_csv(rd: impl std::io::Read, ledger: &mut dyn Ledger) -> Result<()
 }
 
 pub fn validate_accounts(rd: impl std::io::Read, ledger: &dyn Ledger) -> Result<(), ExecError> {
+    validate_accounts_internal(rd, |c| ledger.get_account(c))
+}
+
+pub fn validate_accounts_internal(
+    rd: impl std::io::Read,
+    get: impl Fn(Client) -> std::io::Result<Option<Account>>,
+) -> Result<(), ExecError> {
     let mut rdr = csv::ReaderBuilder::new()
         .delimiter(b',')
         .trim(csv::Trim::All)
@@ -78,7 +85,7 @@ pub fn validate_accounts(rd: impl std::io::Read, ledger: &dyn Ledger) -> Result<
     for result in rdr.deserialize() {
         let r: AccountState = result?;
         let client = r.client;
-        match ledger.get_account(client)? {
+        match get(client)? {
             None => Err(ExecError::StringError("".into())),
             Some(Account {
                 available,
