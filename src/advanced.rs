@@ -1,43 +1,86 @@
 use crate::common::*;
-use crate::libcsv::{ExecError, TxRequest};
+use crate::libcsv::{validate_accounts_internal, AccountState, ExecError, TxRequest};
 use crossbeam::sync::WaitGroup;
 use crossbeam_channel::{bounded, unbounded, Sender, TryRecvError};
 use serde::{Deserialize, Serialize};
 use std::default::Default;
 use std::io::{Error as IoError, ErrorKind::Other as AnotherError};
 use std::path::Path;
+use std::sync::{Arc, Mutex};
 use std::thread;
 
 const MSG_QUEUE_LENGTH: usize = 8;
 
-pub fn concurrent_execute_csv_file<T: Ledger + Clone + Send + 'static>(
-    concurrency: Option<usize>,
-    path: impl AsRef<Path>,
-    ledger: T,
-) -> Result<(), ExecError> {
-    let mut f = std::fs::File::open(path)?;
-    concurrent_execute_csv(concurrency, &mut f, ledger)
+pub fn index_by_client(c: Client, concurrency: usize) -> usize {
+    let index = c.0 as u32;
+    let r = (((index + 1013904223) as u64) * 1664525) as u32;
+    (r as usize * concurrency) >> 32
 }
 
-pub fn concurrent_execute_csv<T: Ledger + Clone + Send + 'static>(
-    concurrency: Option<usize>,
+pub fn sharded_validate_accounts(
     rd: impl std::io::Read,
-    ledger: T,
+    ledgers: &Vec<Arc<Mutex<dyn Ledger + Send>>>,
+    index: impl Fn(Client, usize) -> usize,
+) -> Result<(), ExecError> {
+    let concurrency = ledgers.len();
+    validate_accounts_internal(rd, |c| {
+        ledgers[index(c, concurrency)]
+            .lock()
+            .unwrap()
+            .get_account(c)
+    })
+}
+
+pub fn sharded_dump_accounts(
+    wr: impl std::io::Write,
+    ledgers: &Vec<Arc<Mutex<dyn Ledger + Send>>>,
+    index: impl Fn(Client, usize) -> usize,
+) -> Result<(), ExecError> {
+    let mut wrr = csv::WriterBuilder::new().delimiter(b',').from_writer(wr);
+    let index = |c| index(c, ledgers.len());
+    for (i, l) in ledgers.iter().enumerate() {
+        for pair in l.lock().unwrap().accounts() {
+            match pair {
+                Ok((client, _)) if index(client) != i => Ok(()),
+                Ok((client, state)) => wrr.serialize(AccountState {
+                    client,
+                    available: state.available,
+                    total: state.total,
+                    held: state.held,
+                    locked: state.locked,
+                }),
+                Err(e) => Err(e.into()),
+            }?;
+        }
+    }
+    Ok(())
+}
+
+pub fn sharded_execute_csv_file(
+    path: impl AsRef<Path>,
+    ledgers: &Vec<Arc<Mutex<dyn Ledger + Send>>>,
+    index: impl Fn(Client, usize) -> usize,
+) -> Result<(), ExecError> {
+    let mut f = std::fs::File::open(path)?;
+    sharded_execute_csv(&mut f, ledgers, index)
+}
+
+pub fn sharded_execute_csv(
+    rd: impl std::io::Read,
+    ledgers: &Vec<Arc<Mutex<dyn Ledger + Send>>>,
+    index: impl Fn(Client, usize) -> usize,
 ) -> Result<(), ExecError> {
     let mut ch: Vec<Sender<TxRequest>> = Vec::new();
     let wg = WaitGroup::new();
-    let concurrency = match concurrency {
-        Some(n) if n > 0 => n,
-        _ => std::thread::available_parallelism().unwrap().get(),
-    };
     let (res_s, res_r) = unbounded::<ExecError>();
-    for _ in 0..concurrency {
+    for ledger in ledgers {
         let res_s = res_s.clone();
         let (msg_s, msg_r) = bounded(MSG_QUEUE_LENGTH);
         ch.push(msg_s);
         let wg = wg.clone();
-        let mut l = ledger.clone();
+        let ledger = ledger.clone();
         thread::spawn(move || {
+            let mut l = ledger.lock().unwrap();
             loop {
                 use TxType::*;
                 let res = match msg_r.recv() {
@@ -62,6 +105,7 @@ pub fn concurrent_execute_csv<T: Ledger + Clone + Send + 'static>(
             drop(wg);
         });
     }
+    let concurrency = ledgers.len();
     let mut rdr = csv::ReaderBuilder::new()
         .delimiter(b',')
         .comment(Some(b'#'))
@@ -71,7 +115,7 @@ pub fn concurrent_execute_csv<T: Ledger + Clone + Send + 'static>(
     for result in rdr.deserialize() {
         let r: TxRequest = result?;
         use TxType::*;
-        let wkr = shard_it(r.client.0 as u32, concurrency);
+        let wkr = index(r.client, concurrency);
         match (r.tx_type, r.amount) {
             (Deposit | Withdrawal, None) => Err(ExecError::StringError("tx has no amount".into())),
             _ => Ok(r),
@@ -91,11 +135,6 @@ pub fn concurrent_execute_csv<T: Ledger + Clone + Send + 'static>(
         Ok(err) => Err(err),
         Err(err) => Err(ExecError::StringError(err.to_string())),
     }
-}
-
-fn shard_it(index: u32, concurrency: usize) -> usize {
-    let r = (((index + 1013904223) as u64) * 1664525) as u32;
-    (r as usize * concurrency) >> 32
 }
 
 #[derive(Clone, Debug)]
@@ -128,6 +167,12 @@ impl SledLedger {
     #[allow(dead_code)]
     pub fn new() -> sled::Result<SledLedger> {
         Self::new_empty(None, Default::default())
+    }
+    #[allow(dead_code)]
+    pub fn sharding(&self, n: usize) -> Vec<Arc<Mutex<dyn Ledger + Send>>> {
+        (0..n)
+            .map(|_| Arc::new(Mutex::new(self.clone())) as Arc<Mutex<dyn Ledger + Send>>)
+            .collect()
     }
 }
 
@@ -210,15 +255,40 @@ fn get<'a, T: Deserialize<'a>>(
 
 #[test]
 fn test_concurrent_csv_processing_1() -> Result<(), ExecError> {
-    use crate::libcsv::validate_accounts;
     let ledger = SledLedger::new().unwrap();
-    concurrent_execute_csv(
-        Some(3),
+    let sharding = ledger.sharding(3);
+    sharded_execute_csv(
         std::io::Cursor::new(crate::basic::TRANSACTIONS.as_bytes()),
-        ledger.clone(),
+        &sharding,
+        index_by_client,
     )?;
-    validate_accounts(
+    sharded_validate_accounts(
         std::io::Cursor::new(crate::basic::ACCOUNTS.as_bytes()),
-        &ledger,
-    )
+        &sharding,
+        index_by_client,
+    )?;
+    sharded_dump_accounts(std::io::stdout(), &sharding, index_by_client)?;
+    Ok(())
+}
+
+#[test]
+fn test_concurrent_csv_processing_2() -> Result<(), ExecError> {
+    let sharding = (0..3)
+        .map(|_| {
+            Arc::new(Mutex::new(crate::basic::HashLedger::default()))
+                as Arc<Mutex<dyn Ledger + Send>>
+        })
+        .collect();
+    sharded_execute_csv(
+        std::io::Cursor::new(crate::basic::TRANSACTIONS.as_bytes()),
+        &sharding,
+        index_by_client,
+    )?;
+    sharded_validate_accounts(
+        std::io::Cursor::new(crate::basic::ACCOUNTS.as_bytes()),
+        &sharding,
+        index_by_client,
+    )?;
+    sharded_dump_accounts(std::io::stdout(), &sharding, index_by_client)?;
+    Ok(())
 }
