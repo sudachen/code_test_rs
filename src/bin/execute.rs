@@ -1,7 +1,9 @@
 use clap::Parser;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
-use toybank::advanced::{sharded_execute_csv_file, SledLedger, index_by_client, sharded_dump_accounts};
+use toybank::advanced::{
+    index_by_client, sharded_dump_accounts, sharded_execute_csv_file, SledLedger,
+};
 use toybank::basic::HashLedger;
 use toybank::common::{Ledger, Policy};
 use toybank::libcsv::{dump_accounts, execute_csv_file, ExecError};
@@ -38,19 +40,20 @@ fn main() -> Result<(), ExecError> {
     let concurrency = match args.concurrency {
         Some(0) => std::thread::available_parallelism().unwrap().get(),
         Some(n) => n,
-        None => 1
+        None => 1,
     };
     match args.ledger {
         // SledDb
         Some(name) => {
-            let mut ledger =
-                if name == "inmem" { SledLedger::new_empty(None, policy) }
-                else {
-                    match args.drop_on_start {
-                        true =>  SledLedger::new_empty(Some(name), policy),
-                        _ => SledLedger::open(name, policy)
-                    }
-                }.map_err(|e| ExecError::StringError(e.to_string()))?;
+            let mut ledger = if name == "inmem" {
+                SledLedger::new_empty(None, policy)
+            } else {
+                match args.drop_on_start {
+                    true => SledLedger::new_empty(Some(name), policy),
+                    _ => SledLedger::open(name, policy),
+                }
+            }
+            .map_err(|e| ExecError::StringError(e.to_string()))?;
             if concurrency > 1 {
                 let sharding = ledger.sharding(concurrency);
                 sharded_execute_csv_file(path, &sharding, index_by_client)
@@ -63,7 +66,10 @@ fn main() -> Result<(), ExecError> {
         None => {
             if concurrency > 1 {
                 let sharding = (0..concurrency)
-                    .map(|_| Arc::new(Mutex::new(HashLedger::with_policy(policy))) as Arc<Mutex<dyn Ledger + Send>>)
+                    .map(|_| {
+                        Arc::new(Mutex::new(HashLedger::with_policy(policy)))
+                            as Arc<Mutex<dyn Ledger + Send>>
+                    })
                     .collect();
                 sharded_execute_csv_file(path, &sharding, index_by_client)?;
                 sharded_dump_accounts(std::io::stdout(), &sharding, index_by_client)

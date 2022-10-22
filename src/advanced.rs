@@ -274,7 +274,10 @@ fn test_concurrent_csv_processing_1() -> Result<(), ExecError> {
 #[test]
 fn test_concurrent_csv_processing_2() -> Result<(), ExecError> {
     let sharding = (0..3)
-        .map(|_| Arc::new(Mutex::new(crate::basic::HashLedger::default())) as Arc<Mutex<dyn Ledger + Send>>)
+        .map(|_| {
+            Arc::new(Mutex::new(crate::basic::HashLedger::default()))
+                as Arc<Mutex<dyn Ledger + Send>>
+        })
         .collect();
     sharded_execute_csv(
         std::io::Cursor::new(crate::basic::TRANSACTIONS.as_bytes()),
