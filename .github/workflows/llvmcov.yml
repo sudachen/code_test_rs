@@ -38,7 +38,7 @@ jobs:
 
       - name: Unit tests should pass successfully
         run: |
-          cargo llvm-cov test --locked --lib --workspace --html --output-dir ./coverage
+          cargo llvm-cov test --locked --workspace --html --output-dir ./coverage
 
       - name: Publish code coverage report
         uses: peaceiris/actions-gh-pages@v3
@@ -46,6 +46,7 @@ jobs:
           publish_dir: ./coverage/html
           publish_branch: coverage
           allow_empty_commit: true
+          github_token: ${{ secrets.GITHUB_TOKEN }}
 
 
 
