@@ -5,7 +5,7 @@ use toybank::advanced::{
     index_by_client, sharded_dump_accounts, sharded_execute_csv_file, SledLedger,
 };
 use toybank::basic::HashLedger;
-use toybank::common::{Ledger, Policy};
+use toybank::common::Policy;
 use toybank::libcsv::{dump_accounts, execute_csv_file, ExecError};
 
 #[derive(Parser, Default, Debug)]
@@ -68,7 +68,7 @@ fn main() -> Result<(), ExecError> {
                 let sharding = (0..concurrency)
                     .map(|_| {
                         Arc::new(Mutex::new(HashLedger::with_policy(policy)))
-                            as Arc<Mutex<dyn Ledger + Send>>
+                            as _
                     })
                     .collect();
                 sharded_execute_csv_file(path, &sharding, index_by_client)?;

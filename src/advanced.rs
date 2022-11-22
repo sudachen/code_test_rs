@@ -171,7 +171,7 @@ impl SledLedger {
     #[allow(dead_code)]
     pub fn sharding(&self, n: usize) -> Vec<Arc<Mutex<dyn Ledger + Send>>> {
         (0..n)
-            .map(|_| Arc::new(Mutex::new(self.clone())) as Arc<Mutex<dyn Ledger + Send>>)
+            .map(|_| Arc::new(Mutex::new(self.clone())) as _)
             .collect()
     }
 }
@@ -276,7 +276,7 @@ fn test_concurrent_csv_processing_2() -> Result<(), ExecError> {
     let sharding = (0..3)
         .map(|_| {
             Arc::new(Mutex::new(crate::basic::HashLedger::default()))
-                as Arc<Mutex<dyn Ledger + Send>>
+                as _
         })
         .collect();
     sharded_execute_csv(
