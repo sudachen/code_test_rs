@@ -1,0 +1,57 @@
+name: LLVM-Cov
+
+on:
+  push:
+    # do not repeat test after bors staging
+    # branches-ignore: development
+    # branches: [ '*staging*', '*trying*', master ]
+
+#on:
+#  workflow_run:
+#    branches-ignore: development
+#    # run only if Build workflow is successfully completed
+#    #    and build cache was created.
+#    workflows: ["Build"]
+#    # run it in staging environment, and on master branch only
+#    types:
+#      - completed
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_INCREMENTAL: 0
+  CARGO_TERM_COLOR: always
+
+jobs:
+  code-coverage:
+    name: Code Coverage
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v3
+      - name: Install Protoc
+        run: sudo apt-get install -y protobuf-compiler
+      - name: Setup llvm-cov for cargo
+        uses: taiki-e/install-action@cargo-llvm-cov
+
+      - name: Unit tests should pass successfully
+        run: |
+          cargo llvm-cov test --locked --lib --workspace --html --output-dir ./coverage
+
+      - name: Publish code coverage report
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          publish_dir: ./coverage/html
+          publish_branch: coverage
+          allow_empty_commit: true
+
+
+
+      #- name: Upload coverage
+      #  if: success()
+      #  uses: actions/upload-artifact@v3
+      #  with:
+      #    name: test-coverage
+      #    path: ./coverage/html/

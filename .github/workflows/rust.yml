@@ -3,12 +3,17 @@ name: Rust
 on:
   push:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   CARGO_TERM_COLOR: always
   CARGO_INCREMENTAL: '0'
 
 jobs:
   build:
+    if: always()
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -18,23 +23,26 @@ jobs:
           override: true
       - name: Build
         run: cargo build
-  next:
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: nightly
-          override: true
-      - name: Run tests
-        run: cargo test
-        env:
-          RUSTFLAGS: '-Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off'
-      - name: rust-grcov
-        uses: actions-rs/grcov@v0.1.5
-      - name: Codecov
-        uses: codecov/codecov-action@v3.1.0
-        with:
-          verbose: true
-          fail_ci_if_error: true
+#  test:
+#    if: always()
+#    needs: [build,next]
+#  next:
+#    needs: build
+#    runs-on: ubuntu-latest
+#    steps:
+#      - uses: actions/checkout@v3
+#      - uses: actions-rs/toolchain@v1
+#        with:
+#          toolchain: nightly
+#          override: true
+#      - name: Run tests
+#        run: cargo test
+#        env:
+#          RUSTFLAGS: '-Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off'
+#      - name: rust-grcov
+#        uses: actions-rs/grcov@v0.1.5
+#      - name: Codecov
+#        uses: codecov/codecov-action@v3.1.0
+#        with:
+#          verbose: true
+#          fail_ci_if_error: true
