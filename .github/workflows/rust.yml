@@ -49,6 +49,7 @@ jobs:
           rustup toolchain add $RUST_VERSION --profile minimal
           rustup default $RUST_VERSION
           rustup component add clippy rustfmt
+
       - name: Set up cargo cache
         id: cache
         uses: actions/cache@v3
@@ -57,25 +58,14 @@ jobs:
           path: |
             target/
           key: "${{ github.workflow }}-${{ runner.os }}-r${{env.RUST_VERSION}}-${{ hashFiles('**/Cargo.lock') }}"
-      #- name: Build
-      #  run: cargo --locked build
-
-      - name: Check workflow permissions
-        id: check_permissions
-        uses: scherermichael-oss/action-has-permission@1.0.6
-        with:
-          required-permission: write
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Run clippy action to produce annotations
         uses: actions-rs/clippy-check@v1
         if: steps.check_permissions.outputs.has-permission
         with:
-          args: --all-targets -- -D warnings
+          args: --all-targets --workspace --locked -- -D warnings
           token: ${{ secrets.GITHUB_TOKEN }}
-          name: Clippy Report
-
+          name: Reports/Clippy
         continue-on-error: true
 
   audit:
