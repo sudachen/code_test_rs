@@ -1,7 +1,20 @@
 coverage:
   status:
     project:
+      precision: 2
+      round: down
       default:
         threshold: "5%"
         target: auto
-    patch: off
+    patch:
+    changes:
+
+github_checks:
+  annotations: true
+
+codecov:
+  require_ci_to_pass: false
+  notify:
+    after_n_builds: 1
+    wait_for_ci: true
+  max_report_age: 24
