@@ -1,13 +1,11 @@
 coverage:
   status:
     project:
-      precision: 2
-      round: down
       default:
         threshold: "5%"
         target: auto
-    patch:
-    changes:
+    patch: true
+    changes: true
 
 github_checks:
   annotations: true

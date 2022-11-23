@@ -27,10 +27,15 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+  pull-requests: write
+  statuses: write
+  checks: write
+
 env:
   CARGO_INCREMENTAL: 0
   CARGO_TERM_COLOR: always
-  #CODECOV_TOKEN: 9c569d07-976d-48f0-84c4-4d2549ac6988
 
 jobs:
   code-coverage:
@@ -63,10 +68,9 @@ jobs:
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v3
         with:
-          token: 9c569d07-976d-48f0-84c4-4d2549ac6988
+          token: ${{ secrets.CODECOV_TOKEN }}
           files: lcov.info
           fail_ci_if_error: true
-          name: Reports/Coverage
 
       - name: Clean up cache
         if: success()
