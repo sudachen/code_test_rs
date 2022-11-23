@@ -1,13 +1,18 @@
 name: Security audit
 on:
+  # it can work well only if started via push trigger
   push:
     #types: [synchronize,opened,reopened]
 
-permissions: write-all
+permissions:
+  contents: read
+  pull-requests: write
+  statuses: write
+  checks: write
 
 jobs:
-  security_audit:
-    #name: Audit
+  audit:
+    name: Audit
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
