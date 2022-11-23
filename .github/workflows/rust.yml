@@ -21,7 +21,7 @@ jobs:
         uses: DigiPie/mongo-action@v1.0.1
       - name: Fill database
         run: |
-          mongo < .github/mongo-setup.js        
+          mongo < mongo-setup.js        
 
   build:
     name: Build
