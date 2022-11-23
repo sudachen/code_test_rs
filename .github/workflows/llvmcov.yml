@@ -3,6 +3,9 @@ name: LLVM-Cov
 on:
   pull_request:
     types: [synchronize,opened]
+  push:
+    # in the Bors staging/trying only
+    branches: ['*staging*', '*trying*']
 
   #push:
   # do not repeat test after bors staging
