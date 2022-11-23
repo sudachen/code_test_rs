@@ -3,12 +3,12 @@ on:
   push:
 
 permissions:
-  contents: read
-  pull-requests: write
-  statuses: write
-  checks: write
-  security-events: write
-  
+  contents: read|write
+  pull-requests: write|read
+  statuses: write|read
+  checks: write|read
+  security-events: write|read
+
 jobs:
   security_audit:
     runs-on: ubuntu-latest
