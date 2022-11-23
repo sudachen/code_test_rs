@@ -1,2 +1,2 @@
-status = [ "LLVM-Cov" ]
+status = [ "Code Coverage", "Build" ]
 timeout_sec = 3600 # 1 hour

@@ -13,6 +13,7 @@ env:
 
 jobs:
   build:
+    name: Build
     if: always()
     runs-on: ubuntu-latest
     steps:
