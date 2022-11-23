@@ -47,7 +47,7 @@ jobs:
         with:
           path: |
             target/
-          key: "${{ github.workflow }}-${{ runner.os }}-r$RUST_VERSION-${{ hashFiles('**/Cargo.lock') }}"
+          key: "${{ github.workflow }}-${{ runner.os }}-r${{RUST_VERSION}}-${{ hashFiles('**/Cargo.lock') }}"
       - name: Build
         run: cargo --locked build
       - name: Clippy
