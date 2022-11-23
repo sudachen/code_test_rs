@@ -38,6 +38,9 @@ jobs:
       - name: Setup llvm-cov for cargo
         uses: taiki-e/install-action@cargo-llvm-cov
 
+      - run: |
+          echo "${{github.event.pull_request.number}}"
+
       - name: Unit tests should pass successfully
         run: |
           cargo llvm-cov test --locked --workspace --lcov --output-path lcov.info
