@@ -1,10 +1,13 @@
 name: LLVM-Cov
 
 on:
-  push:
-    # do not repeat test after bors staging
-    # branches-ignore: development
-    # branches: [ '*staging*', '*trying*', master ]
+  pull_request:
+    types: [synchronize,opened]
+
+  #push:
+  # do not repeat test after bors staging
+  # branches-ignore: development
+  # branches: [ '*staging*', '*trying*', master ]
 
 #on:
 #  workflow_run:
@@ -23,11 +26,10 @@ concurrency:
 env:
   CARGO_INCREMENTAL: 0
   CARGO_TERM_COLOR: always
-  CODECOV_TOKEN: 9c569d07-976d-48f0-84c4-4d2549ac6988
+  #CODECOV_TOKEN: 9c569d07-976d-48f0-84c4-4d2549ac6988
 
 jobs:
   code-coverage:
-    #if: ${{github.event.pull_request.number}}
     name: Code Coverage
     runs-on: ubuntu-latest
     steps:
@@ -48,10 +50,9 @@ jobs:
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v3
         with:
-          token: $CODECOV_TOKEN
+          token: 9c569d07-976d-48f0-84c4-4d2549ac6988
           files: lcov.info
           fail_ci_if_error: true
-          #override_pr: ${{github.event.pull_request.number}}
 
       #- name: Publish code coverage report
       #  uses: peaceiris/actions-gh-pages@v3
