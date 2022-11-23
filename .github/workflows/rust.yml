@@ -13,10 +13,11 @@ env:
 
 jobs:
   mongo:
-    name: Build
+    name: Mongo
     if: always()
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v3
       - name: Create mongo Docker container
         uses: DigiPie/mongo-action@v1.0.1
       - name: Fill database
