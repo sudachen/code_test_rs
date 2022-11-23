@@ -1,9 +1,9 @@
-name: Rust
+name: Security Audit
 
 on:
-  pull_request:
+  #pull_request:
     # in the PR updates
-    types: [synchronize,opened]
+  #  types: [synchronize,opened]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
