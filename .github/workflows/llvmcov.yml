@@ -67,6 +67,14 @@ jobs:
           files: lcov.info
           fail_ci_if_error: true
 
+      - name: Clean up cache
+        if: success()
+        run: |
+          find ./target/llvm-cov-target/debug -maxdepth 1 -type f -delete
+          rm -rf ./target/llvm-cov-target/debug/examples
+          rm lcov.info
+
+
       #- name: Publish code coverage report
       #  uses: peaceiris/actions-gh-pages@v3
       #  with:
