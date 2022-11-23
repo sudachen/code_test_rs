@@ -17,7 +17,7 @@ env:
 jobs:
   mongo:
     name: Mongo
-    if: always()
+    if: false
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -34,6 +34,7 @@ jobs:
 
   build:
     name: Build
+    if: false
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -70,7 +71,25 @@ jobs:
           name: Clippy Report
         continue-on-error: true
 
+  audit:
+    name: Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Rust ${{env.RUST_VERSION}}
+        run: |
+          rustup toolchain add $RUST_VERSION --profile minimal
+          rustup default $RUST_VERSION
+          rustup component add clippy rustfmt
+      - name: Check workflow permissions
+        id: check_permissions
+        uses: scherermichael-oss/action-has-permission@1.0.6
+        with:
+          required-permission: write
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - uses: actions-rs/audit-check@v1
+        if: steps.check_permissions.outputs.has-permission
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
