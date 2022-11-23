@@ -1,7 +1,9 @@
 name: Rust
 
 on:
-  push:
+  pull_request:
+    # in the PR updates
+    types: [synchronize,opened]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -48,8 +50,8 @@ jobs:
           path: |
             target/
           key: "${{ github.workflow }}-${{ runner.os }}-r${{env.RUST_VERSION}}-${{ hashFiles('**/Cargo.lock') }}"
-      - name: Build
-        run: cargo --locked build
+      #- name: Build
+      #  run: cargo --locked build
 
       - name: Check workflow permissions
         id: check_permissions
