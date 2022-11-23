@@ -25,7 +25,9 @@ jobs:
           pwd
           ls -la
           cat mongo-setup.js
-          mongo < mongo-setup.js        
+          mongo --help
+          mongo 'mongodb://127.0.0.1:27017/?compressors=disabled&gssapiServiceName=mongodb&connectTimeoutMS=999999&socketTimeoutMS=999999' \
+            < mongo-setup.js        
 
   build:
     name: Build
