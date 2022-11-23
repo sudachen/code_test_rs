@@ -38,7 +38,7 @@ jobs:
 
       - name: Unit tests should pass successfully
         run: |
-          cargo llvm-cov test --locked --workspace --lcov -output-path lcov.info
+          cargo llvm-cov test --locked --workspace --lcov --output-path lcov.info
 
       - name: Codecov
         uses: codecov/codecov-action@v3.1.0
