@@ -40,16 +40,10 @@ jobs:
         run: |
           cargo llvm-cov test --locked --workspace --lcov --output-path lcov.info
 
-      - name: Codecov
-        uses: codecov/codecov-action@v3.1.0
-        with:
-          verbose: true
-          fail_ci_if_error: true
-
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v3
         with:
-          token: ${{ secrets.CODECOV_TOKEN }} # not required for public repos
+          token: ${{ secrets.CODECOV_TOKEN }}
           files: lcov.info
           fail_ci_if_error: true
 
