@@ -10,6 +10,7 @@ concurrency:
 env:
   CARGO_TERM_COLOR: always
   CARGO_INCREMENTAL: '0'
+  RUST_VERSION: 1.65.0
 
 jobs:
   mongo:
@@ -35,10 +36,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: nightly
-          override: true
+      - name: Rust $RUST_VERSION
+        run: |
+          rustup toolchain add $RUST_VERSION --profile minimal
+          rustup default $RUST_VERSION
+          rustup component add clippy rustfmt
       - name: Set up cargo cache
         id: cache
         uses: actions/cache@v3
@@ -46,9 +48,11 @@ jobs:
         with:
           path: |
             target/
-          key: "${{ github.workflow }}-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}"
+          key: "${{ github.workflow }}-${{ runner.os }}-r$RUST_VERSION-${{ hashFiles('**/Cargo.lock') }}"
       - name: Build
         run: cargo --locked build
+      - name: Clippy
+        run: cargo clippy --workspace --locked
 #  test:
 #    if: always()
 #    needs: [build,next]
