@@ -13,11 +13,15 @@ env:
 
 jobs:
   mongo:
-    - name: Create mongo Docker container
-      uses: DigiPie/mongo-action@v1.0.1
-    - name: Fill database
-      run: |
-        mongo < .github/mongo-setup.js        
+    name: Build
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create mongo Docker container
+        uses: DigiPie/mongo-action@v1.0.1
+      - name: Fill database
+        run: |
+          mongo < .github/mongo-setup.js        
 
   build:
     name: Build
