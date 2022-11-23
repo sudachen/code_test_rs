@@ -1,0 +1,2 @@
+status = [ "LLVM-Cov" ]
+timeout_sec = 3600 # 1 hour
