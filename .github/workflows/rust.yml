@@ -61,7 +61,6 @@ jobs:
 
       - name: Run clippy action to produce annotations
         uses: actions-rs/clippy-check@v1
-        if: steps.check_permissions.outputs.has-permission
         with:
           args: --all-targets --workspace --locked -- -D warnings
           token: ${{ secrets.GITHUB_TOKEN }}

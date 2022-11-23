@@ -66,6 +66,7 @@ jobs:
           token: 9c569d07-976d-48f0-84c4-4d2549ac6988
           files: lcov.info
           fail_ci_if_error: true
+          name: Reports/Coverage
 
       - name: Clean up cache
         if: success()

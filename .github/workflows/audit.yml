@@ -31,4 +31,3 @@ jobs:
           arguments: --all-features
           command-arguments: ""
           credentials: https://${{ secrets.GITHUB_USER }}:${{ secrets.GITHUB_PAT }}@g
-          
