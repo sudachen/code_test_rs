@@ -1,10 +1,11 @@
 name: ARust
 
 on:
-  pull_request:
-    # in the PR updates
-    types: [synchronize,opened,reopened]
-    branches: master
+  push:
+  #pull_request:
+  #  # in the PR updates
+  #  types: [synchronize,opened,reopened]
+  #  branches: master
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
