@@ -36,5 +36,5 @@ jobs:
           prLabel: ${{ steps.PR.outputs.pr_labels }}
 
       - run: false
-        if: steps.PR.outcome != 'success'
+        if: steps.PR.outcome != 'success' || !steps.PR.outputs.number
 
