@@ -13,10 +13,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: PR test
-        id: pr
+        id: PR
         uses: 8BitJonny/gh-get-current-pr@2.1.3
 
-      - run: echo "PR ${prNumber} ${prTitle} at ${prUrl} is ${prJSON}"
+      - name: info
+        run: echo "PR ${prNumber} ${prTitle} at ${prUrl} is ${prJSON}"
         if: steps.PR.outcome == 'success'
         env:
           # JSON object with the full PR object
