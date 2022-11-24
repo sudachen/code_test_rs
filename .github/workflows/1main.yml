@@ -58,13 +58,30 @@ jobs:
             target/
           key: "${{ github.workflow }}-${{ runner.os }}-r${{env.RUST_VERSION}}-${{ hashFiles('**/Cargo.lock') }}"
 
-      - name: Run clippy action to produce annotations
-        uses: actions-rs/clippy-check@v1
-        with:
-          args: --all-targets --workspace --locked -- -D warnings
-          token: ${{ secrets.GITHUB_TOKEN }}
-          name: Reports/Clippy
+
+      - name: Install required cargo
+        run: cargo install clippy-sarif sarif-fmt
+
+      - name: Run rust-clippy
+        run:
+          cargo clippy
+          --all-features
+          --message-format=json | clippy-sarif | tee rust-clippy-results.sarif | sarif-fmt
         continue-on-error: true
+
+      - name: Upload analysis results to GitHub
+        uses: github/codeql-action/upload-sarif@v1
+        with:
+          sarif_file: rust-clippy-results.sarif
+          wait-for-processing: true
+
+      #- name: Run clippy action to produce annotations
+      #  uses: actions-rs/clippy-check@v1
+      #  with:
+      #    args: --all-targets --workspace --locked -- -D warnings
+      #    token: ${{ secrets.GITHUB_TOKEN }}
+      #    name: Reports/Clippy
+      #  continue-on-error: true
 
 
   audit:
