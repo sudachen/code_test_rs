@@ -20,7 +20,7 @@ jobs:
 
       - name: info
         run: echo "PR ${prNumber} ${prTitle} at ${prUrl} is ${prJSON}"
-        if: steps.PR.outcome == 'success'
+        if: ${[ steps.PR.outcome == 'success' }}
         env:
           # JSON object with the full PR object
           # toJSON(fromJSON(...pr)) parses it into memory and then format is with pretty-print.
@@ -36,5 +36,5 @@ jobs:
           prLabel: ${{ steps.PR.outputs.pr_labels }}
 
       - run: false
-        if: steps.PR.outcome != 'success' || !steps.PR.outputs.number
+        if: ${{ steps.PR.outcome != 'success' || steps.PR.outputs.number == '' }}
 
