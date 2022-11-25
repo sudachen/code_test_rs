@@ -2,7 +2,7 @@ name: Test
 
 on:
   push:
-
+    
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -18,5 +18,6 @@ jobs:
   bors:
     name: Bors
     runs-on: ubuntu-latest
+    if: ${{ github.ref == 'refs/heads/trying' || github.ref == 'refs/heads/staging' }}
     steps:
       - run: true
