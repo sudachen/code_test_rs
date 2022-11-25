@@ -15,33 +15,8 @@ permissions:
 
 
 jobs:
-  test:
-    name: PR test
+  bors:
+    name: Bors
     runs-on: ubuntu-latest
     steps:
-      - name: PR test
-        id: PR
-        uses: 8BitJonny/gh-get-current-pr@2.1.3
-
-
-
-      - name: info
-        run: echo "PR ${prNumber} ${prTitle} at ${prUrl} is ${prJSON}"
-        if: ${{ steps.PR.outcome == 'success' }}
-        env:
-          # JSON object with the full PR object
-          # toJSON(fromJSON(...pr)) parses it into memory and then format is with pretty-print.
-          #prJSON: ${{ toJSON(fromJSON(steps.current_pr.outputs.pr)) }}
-          # Direct access to common PR properties
-          prNumber: ${{ steps.PR.outputs.number }}
-          prUrl: ${{ steps.PR.outputs.pr_url }}
-          prTitle: ${{ steps.PR.outputs.pr_title }}
-          prBody: ${{ steps.PR.outputs.pr_body }}
-          prCreatedAt: ${{ steps.PR.outputs.pr_created_at }}
-          prMergedAt: ${{ steps.PR.outputs.pr_merged_at }}
-          prClosedAt: ${{ steps.PR.outputs.pr_closed_at }}
-          prLabel: ${{ steps.PR.outputs.pr_labels }}
-
-      - run: false
-        if: ${{ steps.PR.outcome != 'success' || steps.PR.outputs.number == '' }}
-
+      - run: true
