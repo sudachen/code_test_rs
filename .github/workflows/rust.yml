@@ -2,7 +2,7 @@ name: Rust
 
 on:
   push:
-    branches: ["master"]
+    branches: [master, trying, staging]
   pull_request:
     branches: ["master"]
 
@@ -36,7 +36,7 @@ jobs:
   bors:
     name: Bors
     runs-on: ubuntu-latest
-    if: ${{ github.ref == 'refs/heads/trying' || github.ref == 'refs/heads/staging' }}
+    #if: ${{ github.ref == 'refs/heads/trying' || github.ref == 'refs/heads/staging' }}
     needs: build
     steps:
       - run: true
