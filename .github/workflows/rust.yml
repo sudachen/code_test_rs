@@ -3,8 +3,8 @@ name: Rust
 on:
   push:
     branches: ["master"]
-  pull_request:
-    branches: ["master"]
+  #pull_request:
+  #  branches: ["master"]
 
 env:
   CARGO_TERM_COLOR: always
@@ -32,3 +32,10 @@ jobs:
         with:
           verbose: true
           fail_ci_if_error: true
+  bors:
+    name: Bors
+    runs-on: ubuntu-latest
+    if: ${{ github.ref == 'refs/heads/trying' || github.ref == 'refs/heads/staging' }}
+    needs: build
+    steps:
+      - run: true
