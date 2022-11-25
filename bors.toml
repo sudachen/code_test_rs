@@ -1,0 +1,4 @@
+status = [ "Bors" ]
+timeout_sec = 3600 # 1 hour
+
+required_approvals = 1
