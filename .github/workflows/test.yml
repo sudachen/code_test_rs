@@ -18,6 +18,9 @@ jobs:
   bors:
     name: Bors
     runs-on: ubuntu-latest
-    if: ${{ github.ref == 'refs/heads/trying' || github.ref == 'refs/heads/staging' }}
     steps:
       - run: true
+        if: ${{ github.ref == 'refs/heads/trying' || github.ref == 'refs/heads/staging' }}
+      - run: false
+        if: ${{ github.ref != 'refs/heads/trying' && github.ref != 'refs/heads/staging' }}
+        
