@@ -48,7 +48,7 @@ env:
 jobs:
   # it calculates conditions to run following jobs
   conditions:
-    name: Conditions ${{env.DEFAULT_REF}}
+    name: Conditions
     if: ${{ 
         ( github.event_name != 'pull_request' ||
           ( github.event.action != 'labeled' && 
@@ -73,6 +73,7 @@ jobs:
     steps:
       # a filler
       - run: true
+        name: ${{env.DEFAULT_REF}}
     outputs:
       # it's push into development branch (by bors or conventional merge)
       default-branch-ci: ${{ github.ref == env.DEFAULT_REF }}
