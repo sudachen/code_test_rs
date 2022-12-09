@@ -16,9 +16,8 @@
 name: Main
 on:
   push:
-    # if default branch it is not master
-    # rename it also in the env.DEFAULT_BRANCH
-    branches: [ trying, staging, $default-branch ]
+    # add your default branch if is not there
+    branches: [ trying, staging, main, master, develop, development ]
   pull_request:
     types: [ synchronize, opened, ready_for_review, labeled, unlabeled ]
     paths-ignore:
@@ -39,9 +38,12 @@ env:
   CARGO_INCREMENTAL: 0
   CARGO_TERM_COLOR: always
   RUST_VERSION: 1.65.0
-  # if the Bors bot is used it's not really necessary, all test are passed on staging
-  DEFAULT_REF: refs/heads/$default-branch
-  RUN_FOR_DEFAULT: true
+
+  # is not really necessary,
+  #   set to true only if you need run all test
+  #   for the target branch
+  RUNALL_ONPUSH: true
+
   # add package names to exclude unit tests
   EXCLUDE_TESTS:
 
@@ -56,7 +58,7 @@ jobs:
             ( contains(github.event.pull_request.labels.*.name,'!ci-draft') ||
               github.event.pull_request.draft == false )) ||
           ( github.event.action == 'labeled' &&
-            ( github.event.lable.name == '!ci-draft' ||
+            ( github.event.label.name == '!ci-draft' ||
               contains(github.event.pull_request.labels.*.name,'!ci-draft') ||
               github.event.pull_request.draft == false ) &&
             ( github.event.label.name == '!ci-codecov' ||
@@ -73,38 +75,44 @@ jobs:
     steps:
       # a filler
       - run: true
-        name: ${{env.DEFAULT_REF}}
     outputs:
-      # it's push into development branch (by bors or conventional merge)
-      default-branch-ci: ${{ github.ref == env.DEFAULT_REF }}
       # it's push into staging/tying by bors
       staging-ci: ${{ github.ref == 'refs/heads/trying' || github.ref == 'refs/heads/staging' }}
+
       # it's non-draft pull_request
       general-ci: ${{
-        (github.ref == env.DEFAULT_REF && env.RUN_FOR_DEFAULT == 'true') || 
+        github.event_name == 'pull_request' ||
         github.ref == 'refs/heads/trying' || 
         github.ref == 'refs/heads/staging' ||
-        github.event_name == 'pull_request' }}
+        env.RUNALL_ONPUSH == 'true' }}
+
       # it's push into development branch (by bors or conventional merge)
       # it's non-draft pull_request with label `!ci-codecov`
       codecov: ${{
-        github.ref == env.DEFAULT_REF ||
-            ( github.event_name == 'pull_request' &&
-              contains(github.event.pull_request.labels.*.name,'!ci-codecov') ) }}
+        ${{ 
+          ( github.event_name == 'push' && 
+            github.ref != 'refs/heads/trying' && 
+            github.ref != 'refs/heads/staging' ) ||
+          ( github.event_name == 'pull_request' &&
+            contains(github.event.pull_request.labels.*.name,'!ci-codecov') ) }}
+
       # it's push into staging/tying by bors
       # it's non-draft pull_request with label `!ci-integration`
       integration: ${{
-        (github.ref == env.DEFAULT_REF && env.RUN_FOR_DEFAULT == 'true') ||
-        github.ref == 'refs/heads/trying' || 
-        github.ref == 'refs/heads/staging' || 
-            ( github.event_name == 'pull_request' &&
-              contains(github.event.pull_request.labels.*.name,'!ci-integration') ) }}
-      audit: ${{
-        (github.ref == env.DEFAULT_REF && env.RUN_FOR_DEFAULT == 'true') ||
-        github.ref == 'refs/heads/trying' ||
-        github.ref == 'refs/heads/staging' ||
+        ( github.event_name == 'push' &&
+            github.ref == 'refs/heads/trying' || 
+            github.ref == 'refs/heads/staging' ||
+            env.RUNALL_ONPUSH == 'true' ) ||
         ( github.event_name == 'pull_request' &&
-        contains(github.event.pull_request.labels.*.name,'!ci-audit') ) }}
+          contains(github.event.pull_request.labels.*.name,'!ci-integration') ) }}
+
+      audit: ${{
+        ( github.event_name == 'push' &&
+          github.ref == 'refs/heads/trying' ||
+          github.ref == 'refs/heads/staging' ||
+          env.RUNALL_ONPUSH == 'true' ) ||
+        ( github.event_name == 'pull_request' &&
+          contains(github.event.pull_request.labels.*.name,'!ci-audit') ) }}
 
   # The Bors bot checks this job status
   ci-success:
