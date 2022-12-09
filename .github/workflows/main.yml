@@ -79,7 +79,7 @@ jobs:
       staging-ci: ${{ github.ref == 'refs/heads/trying' || github.ref == 'refs/heads/staging' }}
       # it's non-draft pull_request
       general-ci: ${{
-        (github.ref == 'refs/heads/$default-branch' && RUN_FOR_DEFAULT == 'true') || 
+        (github.ref == 'refs/heads/$default-branch' && env.RUN_FOR_DEFAULT == 'true') || 
         github.ref == 'refs/heads/trying' || 
         github.ref == 'refs/heads/staging' ||
         github.event_name == 'pull_request' }}
