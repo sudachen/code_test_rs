@@ -41,19 +41,7 @@ env:
   EXCLUDE_TESTS:
 
 jobs:
-
-  # the job
-  job1:
-    name: "Job1"
-    if: false
-    runs-on: ubuntu-latest
-    steps:
-      - run: |
-
   # it calculates conditions to run following jobs
-  #pre-conditions:
-  #  name: Conditions
-
   conditions:
     name: Conditions
     if: ${{ 
