@@ -47,7 +47,7 @@ env:
 jobs:
   # it calculates conditions to run following jobs
   conditions:
-    name: Conditions $default-branch ${{ "test/$default-branch" }} ${{ 'test/$default-branch' }} ${{ $default-branch == 'master' }}
+    name: Conditions $default-branch ${{ 'test/$default-branch' }} $${{ '$default-branch' == 'master' }}
     if: ${{ 
         ( github.event_name != 'pull_request' ||
           ( github.event.action != 'labeled' && 
