@@ -51,31 +51,30 @@ jobs:
       - run: |
 
   # it calculates conditions to run following jobs
-  pre-conditions:
-    name: Conditions
+  #pre-conditions:
+  #  name: Conditions
+
+  conditions1:
     if: ${{ 
-      ( # it pushes into staging, trying, development, master
-        github.event_name != 'pull_request' ||
-        ( github.event.action != 'labeled' && 
-          github.event.action != 'unlabeled' &&
-          ( contains(github.event.pull_request.labels.*.name,'!ci-draft') ||
-            github.event.pull_request.draft == false )) ||
-        # it adds appropriate label
-        ( github.event.action == 'labeled' &&
-          ( github.event.lable.name == '!ci-draft' ||
-            contains(github.event.pull_request.labels.*.name,'!ci-draft') ||
-            github.event.pull_request.draft == false ) &&
-          ( github.event.label.name == '!ci-codecov' ||
-            github.event.label.name == '!ci-audit'||
-            github.event.label.name == '!ci-integration' ||
-            github.event.label.name == '!ci-draft' ) )  ||
-        # it un-label !ci-skip 
-        ( github.event.action == 'unlabeled' && github.event.label.name == '!ci-skip' )
-      ) && (
-        # the PR is not labeled with !ci-skip, or it un-labels !ci-skip from the PR
-        !contains(github.event.pull_request.labels.*.name,'!ci-skip') ||
-        ( github.event.action == 'unlabeled' && github.event.label.name == '!ci-skip' )
-      ) }}
+        ( github.event_name != 'pull_request' ||
+          ( github.event.action != 'labeled' && 
+            github.event.action != 'unlabeled' &&
+            ( contains(github.event.pull_request.labels.*.name,'!ci-draft') ||
+              github.event.pull_request.draft == false )) ||
+          ( github.event.action == 'labeled' &&
+            ( github.event.lable.name == '!ci-draft' ||
+              contains(github.event.pull_request.labels.*.name,'!ci-draft') ||
+              github.event.pull_request.draft == false ) &&
+            ( github.event.label.name == '!ci-codecov' ||
+              github.event.label.name == '!ci-audit'||
+              github.event.label.name == '!ci-integration' ||
+              github.event.label.name == '!ci-draft' ) )  ||
+          ( github.event.action == 'unlabeled' && github.event.label.name == '!ci-skip' )
+        ) && (
+          !contains(github.event.pull_request.labels.*.name,'!ci-skip') ||
+          ( github.event.action == 'unlabeled' && github.event.label.name == '!ci-skip' )
+        ) 
+      }}
     runs-on: ubuntu-latest
     steps:
       # a filler
