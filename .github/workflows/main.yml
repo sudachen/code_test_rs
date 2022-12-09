@@ -74,31 +74,31 @@ jobs:
       - run: true
     outputs:
       # it's push into development branch (by bors or conventional merge)
-      default-branch-ci: ${{ github.ref == "refs/heads/$default-branch" }}
+      default-branch-ci: ${{ github.ref == 'refs/heads/$default-branch' }}
       # it's push into staging/tying by bors
       staging-ci: ${{ github.ref == 'refs/heads/trying' || github.ref == 'refs/heads/staging' }}
       # it's non-draft pull_request
       general-ci: ${{
-        (github.ref == "refs/heads/$default" && RUN_FOR_DEFAULT == 'true') || 
+        (github.ref == 'refs/heads/$default-branch' && RUN_FOR_DEFAULT == 'true') || 
         github.ref == 'refs/heads/trying' || 
         github.ref == 'refs/heads/staging' ||
         github.event_name == 'pull_request' }}
       # it's push into development branch (by bors or conventional merge)
       # it's non-draft pull_request with label `!ci-codecov`
       codecov: ${{
-        github.ref == "refs/heads/$default-branch" ||
+        github.ref == 'refs/heads/$default-branch' ||
             ( github.event_name == 'pull_request' &&
               contains(github.event.pull_request.labels.*.name,'!ci-codecov') ) }}
       # it's push into staging/tying by bors
       # it's non-draft pull_request with label `!ci-integration`
       integration: ${{
-        (github.ref == "refs/heads/$default" && RUN_FOR_DEFAULT == 'true') ||
+        (github.ref == 'refs/heads/$default-branch' && env.RUN_FOR_DEFAULT == 'true') ||
         github.ref == 'refs/heads/trying' || 
         github.ref == 'refs/heads/staging' || 
             ( github.event_name == 'pull_request' &&
               contains(github.event.pull_request.labels.*.name,'!ci-integration') ) }}
       audit: ${{
-        (github.ref == "refs/heads/$default" && RUN_FOR_DEFAULT == 'true') ||
+        (github.ref == 'refs/heads/$default' && env.RUN_FOR_DEFAULT == 'true') ||
         github.ref == 'refs/heads/trying' ||
         github.ref == 'refs/heads/staging' ||
         ( github.event_name == 'pull_request' &&
