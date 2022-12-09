@@ -54,7 +54,8 @@ jobs:
   #pre-conditions:
   #  name: Conditions
 
-  conditions1:
+  conditions:
+    name: Conditions
     if: ${{ 
         ( github.event_name != 'pull_request' ||
           ( github.event.action != 'labeled' && 
