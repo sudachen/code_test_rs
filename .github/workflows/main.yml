@@ -40,6 +40,7 @@ env:
   CARGO_TERM_COLOR: always
   RUST_VERSION: 1.65.0
   # if the Bors bot is used it's not really necessary, all test are passed on staging
+  DEFAULT_REF: refs/heads/$default-branch
   RUN_FOR_DEFAULT: true
   # add package names to exclude unit tests
   EXCLUDE_TESTS:
@@ -47,7 +48,7 @@ env:
 jobs:
   # it calculates conditions to run following jobs
   conditions:
-    name: Conditions $default-branch ${{ 'test/$default-branch' }} $${{ '$default-branch' == 'master' }}
+    name: Conditions ${{default-branch}} ${{env.DEFAULT_REF}}
     if: ${{ 
         ( github.event_name != 'pull_request' ||
           ( github.event.action != 'labeled' && 
@@ -74,31 +75,31 @@ jobs:
       - run: true
     outputs:
       # it's push into development branch (by bors or conventional merge)
-      default-branch-ci: ${{ github.ref == 'refs/heads/$default-branch' }}
+      default-branch-ci: ${{ github.ref == env.DEFAULT_REF }}
       # it's push into staging/tying by bors
       staging-ci: ${{ github.ref == 'refs/heads/trying' || github.ref == 'refs/heads/staging' }}
       # it's non-draft pull_request
       general-ci: ${{
-        (github.ref == 'refs/heads/$default-branch' && env.RUN_FOR_DEFAULT == 'true') || 
+        (github.ref == env.DEFAULT_REF && env.RUN_FOR_DEFAULT == 'true') || 
         github.ref == 'refs/heads/trying' || 
         github.ref == 'refs/heads/staging' ||
         github.event_name == 'pull_request' }}
       # it's push into development branch (by bors or conventional merge)
       # it's non-draft pull_request with label `!ci-codecov`
       codecov: ${{
-        github.ref == 'refs/heads/$default-branch' ||
+        github.ref == env.DEFAULT_REF ||
             ( github.event_name == 'pull_request' &&
               contains(github.event.pull_request.labels.*.name,'!ci-codecov') ) }}
       # it's push into staging/tying by bors
       # it's non-draft pull_request with label `!ci-integration`
       integration: ${{
-        (github.ref == 'refs/heads/$default-branch' && env.RUN_FOR_DEFAULT == 'true') ||
+        (github.ref == env.DEFAULT_REF && env.RUN_FOR_DEFAULT == 'true') ||
         github.ref == 'refs/heads/trying' || 
         github.ref == 'refs/heads/staging' || 
             ( github.event_name == 'pull_request' &&
               contains(github.event.pull_request.labels.*.name,'!ci-integration') ) }}
       audit: ${{
-        (github.ref == 'refs/heads/$default' && env.RUN_FOR_DEFAULT == 'true') ||
+        (github.ref == env.DEFAULT_REF && env.RUN_FOR_DEFAULT == 'true') ||
         github.ref == 'refs/heads/trying' ||
         github.ref == 'refs/heads/staging' ||
         ( github.event_name == 'pull_request' &&
