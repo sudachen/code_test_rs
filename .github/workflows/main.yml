@@ -41,8 +41,8 @@ env:
   EXCLUDE_TESTS:
 
 jobs:
+  # it calculates conditions to run following jobs
   conditions:
-    # calculate conditions to run following jobs
     name: Conditions
     if: ${{ 
       ( # it pushes into staging, trying, development, master
