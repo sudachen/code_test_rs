@@ -1,3 +1,6 @@
+[![codecov](https://codecov.io/gh/sudachen/code_test_rs/branch/master/graph/badge.svg?token=Z03QYMSP1J)](https://codecov.io/gh/sudachen/code_test_rs) 
+![](https://github.com/sudachen/code_test_rs/actions/workflows/main.yml/badge.svg)
+
 It's my "Rust Coding Test" artifact. 
 In a few words, the original problem sounds like this: 
 "you need to implement a transaction processor
