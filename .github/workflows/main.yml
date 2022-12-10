@@ -94,9 +94,8 @@ jobs:
       # it's push into development branch (by bors or conventional merge)
       # it's non-draft pull_request with label `!ci-codecov`
       codecov: ${{
-          ( github.event_name == 'push' && 
-            github.ref != 'refs/heads/trying' && 
-            github.ref != 'refs/heads/staging' ) ||
+          ( github.event_name == 'push' && github.ref != 'refs/heads/trying' &&
+             ( github.ref == 'refs/heads/staging' || env.RUNALL_ONPUSH == 'true' ) ) ||
           ( github.event_name == 'pull_request' &&
             contains(github.event.pull_request.labels.*.name,'!ci-codecov') ) }}
 
