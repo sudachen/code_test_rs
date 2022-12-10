@@ -3,7 +3,7 @@
 
 
 It's my "Rust Coding Test" artifact. 
-In a few words, the original problem sounds like this: 
+In a few words, the original problem sounds like: 
 "you need to implement a transaction processor
 which takes a CSV file and prints resulting accounts state".
 
