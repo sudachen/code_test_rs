@@ -1,13 +1,12 @@
 #![cfg(test)]
 
-use cucumber::codegen::Regex;
-use cucumber::{gherkin::Step, given, then, when, World as _};
-use futures;
-use futures::FutureExt as _;
+use cucumber::{
+    codegen::Regex,
+    { gherkin::Step, given, then, when, World as _ }
+};
+use futures::{ self, FutureExt as _ };
 use rust_decimal::Decimal;
-use std::default::Default;
-use std::fmt::Debug;
-use std::marker::PhantomData;
+use std::{ default::Default, fmt::Debug, marker::PhantomData};
 use toybank::common::{Ledger, Policy, TxError};
 
 pub type Dyna = Box<dyn Ledger>;
@@ -166,7 +165,7 @@ fn account_is_locked(w: &mut Test, c: u32) {
 fn execute_csv(w: &mut Test, step: &Step) {
     let x = step.docstring.clone().unwrap();
     if let Err(e) = toybank::libcsv::execute_csv(std::io::Cursor::new(x.as_bytes()), w.0.dyna()) {
-        assert!(false, "error occured: {e}")
+        panic!("error occured: {e}")
     }
 }
 
@@ -176,7 +175,7 @@ fn validate_accounts(w: &mut Test, step: &Step) {
     if let Err(e) =
         toybank::libcsv::validate_accounts(std::io::Cursor::new(x.as_bytes()), w.0.dyna())
     {
-        assert!(false, "error occured: {e}")
+        panic!("error occured: {e}")
     }
 }
 

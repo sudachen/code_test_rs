@@ -1,15 +1,14 @@
 mod suite;
-use toybank::advanced::SledLedger;
-use toybank::common::Policy;
+use toybank::{ advanced::SledLedger, common::Policy };
 
 struct TheFactory;
 
 impl suite::Factory for TheFactory {
     fn open(name: String, policy: Policy) -> suite::Dyna {
-        return Box::new(SledLedger::open(name, policy).unwrap());
+        Box::new(SledLedger::open(name, policy).unwrap())
     }
     fn new(name: Option<String>, policy: Policy) -> suite::Dyna {
-        return Box::new(SledLedger::new_empty(name, policy).unwrap());
+        Box::new(SledLedger::new_empty(name, policy).unwrap())
     }
 }
 

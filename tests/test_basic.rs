@@ -1,6 +1,5 @@
 mod suite;
-use toybank::basic::HashLedger;
-use toybank::common::Policy;
+use toybank::{basic::HashLedger, common::Policy};
 
 struct TheFactory;
 
@@ -9,7 +8,7 @@ impl suite::Factory for TheFactory {
         panic!("open is not implemented for basic::Accountant using basic::Ledger");
     }
     fn new(_: Option<String>, policy: Policy) -> suite::Dyna {
-        return Box::new(HashLedger::with_policy(policy));
+        Box::new(HashLedger::with_policy(policy))
     }
 }
 
