@@ -1,4 +1,3 @@
-
 #####
 #
 #  when PR is updated by pushing changes to the branch
@@ -16,7 +15,8 @@
 name: Main
 on:
   push:
-    branches: [ trying, staging, development, master ]
+    # add your default branch if is not there
+    branches: [ trying, staging, main, master, develop, development ]
   pull_request:
     types: [ synchronize, opened, ready_for_review, labeled, unlabeled ]
     paths-ignore:
@@ -37,70 +37,80 @@ env:
   CARGO_INCREMENTAL: 0
   CARGO_TERM_COLOR: always
   RUST_VERSION: 1.65.0
+
+  # is not really necessary,
+  #   set to true only if you need run all test
+  #   for the target branch
+  RUNALL_ONPUSH: true
+
   # add package names to exclude unit tests
   EXCLUDE_TESTS:
 
 jobs:
+  # it calculates conditions to run following jobs
   conditions:
-    # calculate conditions to run following jobs
     name: Conditions
     if: ${{ 
-      ( # it pushes into staging, trying, development, master
-        github.event_name != 'pull_request' ||
-        ( github.event.action != 'labeled' && 
-          github.event.action != 'unlabeled' &&
-          ( contains(github.event.pull_request.labels.*.name,'!ci-draft') ||
-            github.event.pull_request.draft == false )) ||
-        # it adds appropriate label
-        ( github.event.action == 'labeled' &&
-          ( github.event.lable.name == '!ci-draft' ||
-            contains(github.event.pull_request.labels.*.name,'!ci-draft') ||
-            github.event.pull_request.draft == false ) &&
-          ( github.event.label.name == '!ci-codecov' ||
-            github.event.label.name == '!ci-audit'||
-            github.event.label.name == '!ci-integration' ||
-            github.event.label.name == '!ci-draft' ) )  ||
-        # it un-label !ci-skip 
-        ( github.event.action == 'unlabeled' && github.event.label.name == '!ci-skip' )
-      ) && (
-        # the PR is not labeled with !ci-skip, or it un-labels !ci-skip from the PR
-        !contains(github.event.pull_request.labels.*.name,'!ci-skip') ||
-        ( github.event.action == 'unlabeled' && github.event.label.name == '!ci-skip' )
-      ) }}
+        ( github.event_name != 'pull_request' ||
+          ( github.event.action != 'labeled' && 
+            github.event.action != 'unlabeled' &&
+            ( contains(github.event.pull_request.labels.*.name,'!ci-draft') ||
+              github.event.pull_request.draft == false )) ||
+          ( github.event.action == 'labeled' &&
+            ( github.event.label.name == '!ci-draft' ||
+              contains(github.event.pull_request.labels.*.name,'!ci-draft') ||
+              github.event.pull_request.draft == false ) &&
+            ( github.event.label.name == '!ci-codecov' ||
+              github.event.label.name == '!ci-audit'||
+              github.event.label.name == '!ci-integration' ||
+              github.event.label.name == '!ci-draft' ) )  ||
+          ( github.event.action == 'unlabeled' && github.event.label.name == '!ci-skip' )
+        ) && (
+          !contains(github.event.pull_request.labels.*.name,'!ci-skip') ||
+          ( github.event.action == 'unlabeled' && github.event.label.name == '!ci-skip' )
+        ) 
+      }}
     runs-on: ubuntu-latest
     steps:
       # a filler
       - run: true
     outputs:
-      # it's push into development branch (by bors or conventional merge)
-      master-ci: ${{ github.ref == 'refs/heads/development' }}
       # it's push into staging/tying by bors
       staging-ci: ${{ github.ref == 'refs/heads/trying' || github.ref == 'refs/heads/staging' }}
-      # it's non-draft pull request
-      non-staging-ci: ${{ github.event_name == 'pull_request' }}
-      # it's push into staging/tying by bors
+
       # it's non-draft pull_request
-      general-ci: ${{ 
+      general-ci: ${{
+        github.event_name == 'pull_request' ||
         github.ref == 'refs/heads/trying' || 
         github.ref == 'refs/heads/staging' ||
-        github.event_name == 'pull_request' }}
+        env.RUNALL_ONPUSH == 'true' }}
+
       # it's push into development branch (by bors or conventional merge)
       # it's non-draft pull_request with label `!ci-codecov`
       codecov: ${{
-        github.ref == 'refs/heads/development' ||
-            ( github.event_name == 'pull_request' &&
-              contains(github.event.pull_request.labels.*.name,'!ci-codecov') ) }}
+          ( github.event_name == 'push' && 
+            github.ref != 'refs/heads/trying' && 
+            github.ref != 'refs/heads/staging' ) ||
+          ( github.event_name == 'pull_request' &&
+            contains(github.event.pull_request.labels.*.name,'!ci-codecov') ) }}
+
       # it's push into staging/tying by bors
       # it's non-draft pull_request with label `!ci-integration`
       integration: ${{
-        github.ref == 'refs/heads/trying' || github.ref == 'refs/heads/staging' || 
-            ( github.event_name == 'pull_request' &&
-              contains(github.event.pull_request.labels.*.name,'!ci-integration') ) }}
-      audit: ${{
-        github.ref == 'refs/heads/trying' ||
-        github.ref == 'refs/heads/staging' ||
+        ( github.event_name == 'push' &&
+            github.ref == 'refs/heads/trying' || 
+            github.ref == 'refs/heads/staging' ||
+            env.RUNALL_ONPUSH == 'true' ) ||
         ( github.event_name == 'pull_request' &&
-        contains(github.event.pull_request.labels.*.name,'!ci-audit') ) }}
+          contains(github.event.pull_request.labels.*.name,'!ci-integration') ) }}
+
+      audit: ${{
+        ( github.event_name == 'push' &&
+          github.ref == 'refs/heads/trying' ||
+          github.ref == 'refs/heads/staging' ||
+          env.RUNALL_ONPUSH == 'true' ) ||
+        ( github.event_name == 'pull_request' &&
+          contains(github.event.pull_request.labels.*.name,'!ci-audit') ) }}
 
   # The Bors bot checks this job status
   ci-success:
