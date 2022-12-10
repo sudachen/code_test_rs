@@ -55,7 +55,7 @@ pub struct Account {
     pub locked: bool,
 }
 
-#[derive(Copy, Clone, Default, PartialEq, Debug, Serialize, Deserialize)]
+#[derive(Copy, Clone, Default, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub enum TxState {
     #[default]
     Committed, // can be disputed
@@ -255,7 +255,7 @@ pub trait Ledger {
             (_, Some(acc)) if acc.locked => Err(TxError::Rejected("account is locked".to_string())),
             // TODO: unknown case
             (Some(tx), Some(acc))
-                if self.policy().allow_negative_balance_for_dispute != true
+                if !self.policy().allow_negative_balance_for_dispute
                 && tx.state == TxState::Committed /* we do dispute */
                 && tx.amount > acc.available =>
             {

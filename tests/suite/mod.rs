@@ -11,7 +11,7 @@ use toybank::common::{Ledger, Policy, TxError};
 
 pub type Dyna = Box<dyn Ledger>;
 
-#[allow(clippy::new-ret-no-self)]
+#[allow(clippy::all)]
 pub trait Factory {
     fn open(ledger: String, policy: Policy) -> Dyna;
     fn new(ledger: Option<String>, policy: Policy) -> Dyna;
