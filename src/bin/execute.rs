@@ -1,12 +1,14 @@
 use clap::Parser;
-use std::path::Path;
-use std::sync::{Arc, Mutex};
-use toybank::advanced::{
-    index_by_client, sharded_dump_accounts, sharded_execute_csv_file, SledLedger,
+use std::{
+    path::Path,
+    sync::{Arc, Mutex},
 };
-use toybank::basic::HashLedger;
-use toybank::common::{Ledger, Policy};
-use toybank::libcsv::{dump_accounts, execute_csv_file, ExecError};
+use toybank::{
+    advanced::{index_by_client, sharded_dump_accounts, sharded_execute_csv_file, SledLedger},
+    basic::HashLedger,
+    common::{Ledger, Policy},
+    libcsv::{dump_accounts, execute_csv_file, ExecError},
+};
 
 #[derive(Parser, Default, Debug)]
 struct Arguments {
@@ -34,7 +36,6 @@ fn main() -> Result<(), ExecError> {
     let args = Arguments::parse();
     let policy = Policy {
         allow_negative_balance_for_dispute: args.allow_negative_dispute,
-        ..Default::default()
     };
     let path = Path::new(&args.input_file);
     let concurrency = match args.concurrency {

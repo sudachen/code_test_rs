@@ -1,13 +1,17 @@
-use crate::common::*;
-use crate::libcsv::{validate_accounts_internal, AccountState, ExecError, TxRequest};
+use crate::{
+    common::*,
+    libcsv::{validate_accounts_internal, AccountState, ExecError, TxRequest},
+};
 use crossbeam::sync::WaitGroup;
 use crossbeam_channel::{bounded, unbounded, Sender, TryRecvError};
 use serde::{Deserialize, Serialize};
-use std::default::Default;
-use std::io::{Error as IoError, ErrorKind::Other as AnotherError};
-use std::path::Path;
-use std::sync::{Arc, Mutex};
-use std::thread;
+use std::{
+    default::Default,
+    io::{Error as IoError, ErrorKind::Other as AnotherError},
+    path::Path,
+    sync::{Arc, Mutex},
+    thread,
+};
 
 const MSG_QUEUE_LENGTH: usize = 8;
 

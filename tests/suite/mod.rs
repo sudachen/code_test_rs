@@ -1,17 +1,17 @@
 #![cfg(test)]
 
-use cucumber::codegen::Regex;
-use cucumber::{gherkin::Step, given, then, when, World as _};
-use futures;
-use futures::FutureExt as _;
+use cucumber::{
+    codegen::Regex,
+    {gherkin::Step, given, then, when, World as _},
+};
+use futures::{self, FutureExt as _};
 use rust_decimal::Decimal;
-use std::default::Default;
-use std::fmt::Debug;
-use std::marker::PhantomData;
+use std::{default::Default, fmt::Debug, marker::PhantomData};
 use toybank::common::{Ledger, Policy, TxError};
 
 pub type Dyna = Box<dyn Ledger>;
 
+#[allow(clippy::all)]
 pub trait Factory {
     fn open(ledger: String, policy: Policy) -> Dyna;
     fn new(ledger: Option<String>, policy: Policy) -> Dyna;
@@ -70,10 +70,10 @@ fn err(status: Result<(), TxError>, j: String) -> Result<(), String> {
     let j = j.trim();
     match status {
         Ok(_) => {
-            if j == "" {
+            if j.is_empty() {
                 Ok(())
             } else {
-                Err(format!("succeeded but must be {j}").into())
+                Err(format!("succeeded but must be {j}"))
             }
         }
         Err(TxError::Rejected(e)) => {
@@ -91,7 +91,7 @@ fn err(status: Result<(), TxError>, j: String) -> Result<(), String> {
             }
         }
         Err(TxError::IOError(e)) => Err(format!("IoError: {e}")),
-        Err(TxError::StringError(e)) => Err(format!("{e}")),
+        Err(TxError::StringError(e)) => Err(e),
         Err(TxError::Empty) => Err("empty".into()),
     }
 }
@@ -166,7 +166,7 @@ fn account_is_locked(w: &mut Test, c: u32) {
 fn execute_csv(w: &mut Test, step: &Step) {
     let x = step.docstring.clone().unwrap();
     if let Err(e) = toybank::libcsv::execute_csv(std::io::Cursor::new(x.as_bytes()), w.0.dyna()) {
-        assert!(false, "error occured: {e}")
+        panic!("error occured: {e}")
     }
 }
 
@@ -176,7 +176,7 @@ fn validate_accounts(w: &mut Test, step: &Step) {
     if let Err(e) =
         toybank::libcsv::validate_accounts(std::io::Cursor::new(x.as_bytes()), w.0.dyna())
     {
-        assert!(false, "error occured: {e}")
+        panic!("error occured: {e}")
     }
 }
 

@@ -49,7 +49,7 @@ env:
   # clippy opts
   # `-D warnings` considers any warning as an error
   # `-W clippy::all` considers all messages as warning
-  CLIPPY_OPTS: -W clippy::all
+  CLIPPY_OPTS: -D warnings
 
 
 jobs:
