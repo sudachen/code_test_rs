@@ -8,55 +8,15 @@ In a few words, the original problem sounds like:
 "you need to implement a transaction processor
 which takes a CSV file and prints resulting accounts state".
 
-The CSV file is presented like:
-```csv
-type,       client, tx, amount
-deposit,    1,      1,  1.0
-deposit,    2,      2,  2.0
-deposit,    3,      3,  3.0
-deposit,    1,      4,  2.0
-withdrawal, 1,      5,  0.5
-dispute,    1,      1,
-chargeback, 1,      1,
-```
+![image](https://user-images.githubusercontent.com/1428/206829287-80207d29-1407-4f1b-9d40-4f772fa290e5.png)
+
 So it must be processed as:
 
-```console
-[sudachen/sudachen_code_test_rs.git|master]$ cargo run -- tests/test_tx_1.csv
-    Finished dev [unoptimized + debuginfo] target(s) in 0.07s
-     Running `target/debug/execute tests/test_tx_1.csv`
-client,available,held,total,locked
-1,1.5,0,1.5,true
-3,3,0,3,false
-2,2,0,2,false
-```
+![image](https://user-images.githubusercontent.com/1428/206829330-a088893d-a38d-490f-8a11-7e0ec2acbc60.png)
 
 To be sure of my solution, I added some cucumber scripts to test the behavior of the solution a little more solid. 
 
-```console
-[sudachen/sudachen_code_test_rs.git|master] ../toybank$ cargo test
-   Compiling toybank v0.1.0 (/Projects/kraken/toybank)
-    Finished test [unoptimized + debuginfo] target(s) in 3.10s
-     Running tests/test_basic.rs (target/debug/deps/test_basic-924d9e19eb32a4fb)
-
-running 1 test
-Feature: Csv Processing
-  Rule: allow negative balance for dispute
-    Scenario: dispute with insufficient balance
-     ✔  Given new ledger
-     ✔  When execute csv
-     ✔  Then validate accounts
-  Rule: default
-    Scenario: predefined test
-     ✔  Given new ledger
-     ✔  When execute csv
-     ✔  Then validate accounts
-    Scenario: a little more complex flow
-     ✔  Given new ledger
-     ✔  When execute csv
-     ✔  Then validate accounts
-...
-```
+![image](https://user-images.githubusercontent.com/1428/206829317-6868db17-b284-4b7e-a202-9a2afc8a0564.png)
 
 The code is divided into the following modules:
 - The module [common](src/common.rs) defining constants, errors, traits Ledger, etc.
