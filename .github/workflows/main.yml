@@ -5,7 +5,7 @@
 #     CI skips all jobs for PRs labeled with `!ci-skip`
 #
 #  Labels:
-#    !ci-draft   - allows run CI for a drafted PR
+#    !ci-draft   - runs CI for drafted PR
 #    !ci-codecov - runs Code Coverage job on every PR update
 #    !ci-audit   - runs Cargo Audit job on every PR update
 #    !ci-integration - runs Integration Tests on every PR updates
@@ -38,13 +38,19 @@ env:
   CARGO_TERM_COLOR: always
   RUST_VERSION: 1.65.0
 
-  # is not really necessary,
-  #   set to true only if you need run all test
-  #   for the target branch
-  RUNALL_ONPUSH: true
+  # set to true only if you need run all test
+  # for the target branch
+  # It's not really necessary, since bors is used for merge
+  RUNALL_ONPUSH: false
 
   # add package names to exclude unit tests
   EXCLUDE_TESTS:
+
+  # clippy opts
+  # `-D warnings` considers any warning as an error
+  # `-W clippy::all` considers all messages as warning
+  CLIPPY_OPTS: -W clippy::all
+
 
 jobs:
   # it calculates conditions to run following jobs
@@ -259,10 +265,8 @@ jobs:
         uses: actions-rs/clippy-check@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          # `-D warnings` considers any warning as an error
-          # `-W clippy::all` considers all messages as warning
           # `--no-deps` does not check dependencies out of workspace
-          args: --all-targets --locked --workspace --exclude web3 -- --no-deps -W clippy::all
+          args: --all-targets --locked --workspace -- --no-deps ${{ env.CLIPPY_OPTS }}
           name: Clippy Report
 
   # it does security audit for known issues with list of dependencies
@@ -280,17 +284,17 @@ jobs:
           rustup toolchain add $RUST_VERSION --profile minimal
           rustup default $RUST_VERSION
 
-      # this actions has reporting problem for the pull_request
-      - uses: actions-rs/audit-check@v1
-        if: github.event_name != 'pull_request'
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+      # this action is used to report about possible security problems
+      #  for pushes only
+      # - uses: actions-rs/audit-check@v1
+      #  if: github.event_name != 'pull_request'
+      #  with:
+      #    token: ${{ secrets.GITHUB_TOKEN }}
 
-      # if it's a pull_request w need to use plane text reporter
-      #  because of there is an error in audit check actions
-
+      # looks like it's better to use plane text reporter
+      #  because of an error in audit check action
+      #  when it used on pull-requests
       - name: Set up cache
-        if: github.event_name == 'pull_request'
         id: cache
         uses: actions/cache@v3
         continue-on-error: false
@@ -300,7 +304,7 @@ jobs:
           key: "Audit-${{ runner.os }}-r${{env.RUST_VERSION}}-${{ hashFiles('**/Cargo.lock') }}"
 
       - name: Warm up the cache
-        if: ${{ github.event_name == 'pull_request' && steps.cache.outputs.cache-hit != 'true' }}
+        if: ${{ steps.cache.outputs.cache-hit != 'true' }}
         run: |
           cargo install cargo-audit --locked 
 
