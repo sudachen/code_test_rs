@@ -309,7 +309,6 @@ jobs:
           cargo install cargo-audit --locked 
 
       - name: Audit
-        if: github.event_name == 'pull_request'
         run:
           cargo audit -q
 
