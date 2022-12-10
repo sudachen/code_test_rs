@@ -2,7 +2,8 @@
 [![](https://github.com/sudachen/code_test_rs/actions/workflows/main.yml/badge.svg)](https://github.com/sudachen/code_test_rs/actions/workflows/main.yml?query=actor%3Aborsborg+branch%3Astaging+is%3Asuccess)
 
 
-It's my "Rust Coding Test" artifact. 
+This was originally my "Rust Coding Test" solution for some company that I won't name here.
+
 In a few words, the original problem sounds like: 
 "you need to implement a transaction processor
 which takes a CSV file and prints resulting accounts state".
@@ -30,7 +31,8 @@ client,available,held,total,locked
 2,2,0,2,false
 ```
 
-The solution has a set of cucumber tests for specific cases. To run tests use:
+To be sure of my solution, I added some cucumber scripts to test the behavior of the solution a little more solid. 
+
 ```console
 [sudachen/sudachen_code_test_rs.git|master] ../toybank$ cargo test
    Compiling toybank v0.1.0 (/Projects/kraken/toybank)
