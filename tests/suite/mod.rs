@@ -11,6 +11,7 @@ use toybank::common::{Ledger, Policy, TxError};
 
 pub type Dyna = Box<dyn Ledger>;
 
+#[allow(clippy::new-ret-no-self)]
 pub trait Factory {
     fn open(ledger: String, policy: Policy) -> Dyna;
     fn new(ledger: Option<String>, policy: Policy) -> Dyna;
@@ -69,10 +70,10 @@ fn err(status: Result<(), TxError>, j: String) -> Result<(), String> {
     let j = j.trim();
     match status {
         Ok(_) => {
-            if j == "" {
+            if j.is_empty() {
                 Ok(())
             } else {
-                Err(format!("succeeded but must be {j}").into())
+                Err(format!("succeeded but must be {j}"))
             }
         }
         Err(TxError::Rejected(e)) => {
@@ -90,7 +91,7 @@ fn err(status: Result<(), TxError>, j: String) -> Result<(), String> {
             }
         }
         Err(TxError::IOError(e)) => Err(format!("IoError: {e}")),
-        Err(TxError::StringError(e)) => Err(format!("{e}")),
+        Err(TxError::StringError(e)) => Err(e),
         Err(TxError::Empty) => Err("empty".into()),
     }
 }
