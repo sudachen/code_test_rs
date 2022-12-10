@@ -1,5 +1,5 @@
 mod suite;
-use toybank::{ advanced::SledLedger, common::Policy };
+use toybank::{advanced::SledLedger, common::Policy};
 
 struct TheFactory;
 

@@ -2,11 +2,11 @@
 
 use cucumber::{
     codegen::Regex,
-    { gherkin::Step, given, then, when, World as _ }
+    {gherkin::Step, given, then, when, World as _},
 };
-use futures::{ self, FutureExt as _ };
+use futures::{self, FutureExt as _};
 use rust_decimal::Decimal;
-use std::{ default::Default, fmt::Debug, marker::PhantomData};
+use std::{default::Default, fmt::Debug, marker::PhantomData};
 use toybank::common::{Ledger, Policy, TxError};
 
 pub type Dyna = Box<dyn Ledger>;

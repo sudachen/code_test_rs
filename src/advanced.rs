@@ -1,6 +1,6 @@
 use crate::{
     common::*,
-    libcsv::{validate_accounts_internal, AccountState, ExecError, TxRequest}
+    libcsv::{validate_accounts_internal, AccountState, ExecError, TxRequest},
 };
 use crossbeam::sync::WaitGroup;
 use crossbeam_channel::{bounded, unbounded, Sender, TryRecvError};
@@ -10,7 +10,7 @@ use std::{
     io::{Error as IoError, ErrorKind::Other as AnotherError},
     path::Path,
     sync::{Arc, Mutex},
-    thread
+    thread,
 };
 
 const MSG_QUEUE_LENGTH: usize = 8;
